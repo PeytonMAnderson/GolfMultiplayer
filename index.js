@@ -4,7 +4,8 @@ const http = require('http');
 const server = http.createServer(app);
 const { Server } = require('socket.io');
 const io = new Server(server);
-const config = require('./config.json');
+
+require("dotenv").config();
 
 app.use(express.static(__dirname + '/public'));
 app.use(express.urlencoded({ extended: true }));
@@ -16,8 +17,10 @@ app.get('/', (req, res) => {
 });
 
 //HTTP server begin listening
-server.listen(config.serverPort , config.serverAddress, () => {
-    console.log('listening on http://' + config.serverAddress + ':' + config.serverPort);
+let port = process.env.PORT || 3000;
+let address = process.env.ADDRESS || 127.0.0.1;
+server.listen(port , address, () => {
+    console.log('listening on http://' + address + ':' + port);
 });
 
 
