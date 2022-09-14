@@ -1,0 +1,21 @@
+{
+    "name": "golfmultiplayer",
+    "version": "1.0.0",
+    "description": "Nodejs server for online mulitplayer minigolf",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "start": "node index.js"
+    },
+    "engines": {
+        "node": "17.4.0"
+    },
+    "author": "Peyton Anderson",
+    "license": "ISC",
+    "dependencies": {
+        "express": "^4.17.3",
+        "path": "^0.12.7",
+        "serve-index": "^1.9.1",
+        "socket.io": "^4.4.1"
+    }
+}
