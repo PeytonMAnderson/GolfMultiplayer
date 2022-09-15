@@ -17,7 +17,7 @@ app.get('/', (req, res) => {
 
 //HTTP server begin listening
 let port = process.env.PORT || 3000;
-let address = process.env.ADDRESS || "localhost";
+let address = process.env.ADDRESS || "0.0.0.0";
 server.listen(port , address, () => {
     console.log('listening on http://' + address + ':' + port);
 });
