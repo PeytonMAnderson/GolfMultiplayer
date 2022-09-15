@@ -12,8 +12,7 @@ app.use(express.urlencoded({ extended: true }));
 
 //Send Resources
 app.get('/', (req, res) => {
-    //res.sendFile(__dirname + '/public/index.html');
-    res.send("Hello");
+    res.sendFile(__dirname + '/public/index.html');
 });
 
 //HTTP server begin listening
