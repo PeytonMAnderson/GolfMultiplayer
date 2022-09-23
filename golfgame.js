@@ -40,6 +40,7 @@ exports.connectedToServer = function(sio, sock) {
     socket.on('joinSocket', joinSocket); //Let Host join the socket
     socket.on('playerJoinREQ', playerJoinREQ);  //Player wants to join host's lobby
     socket.on('requestPlayerToJoin', requestPlayerToJoin); //Host accepted player, let server add player to lobby
+    socket.on('gameUpdate', gameUpdate); //Host sending new data of ENTIRE lobby to EVERYONE
 }
 
 
@@ -154,3 +155,5 @@ function requestPlayerToJoin(data) {
         console.log(error);
     }
 }
+
+function gameUpdate(data) {this.broadcast.to(parseInt(data.gameId)).emit('gameUpdateACK', data);}

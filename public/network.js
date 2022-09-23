@@ -9,7 +9,8 @@ var GRD = {
     playerCount: 1,
     playerLimit: 8,
     timeLeft: 'NULL',
-    timeLimit: 120
+    timeLimit: 120,
+    Players: []
 }
 
 //Local Variables (Only on this instance)
@@ -29,7 +30,7 @@ var IO = {
         //Host Server Listeners
         IO.socket.on('playerJoinREQ', App.Host.playerJoinREQ); //Host determines if player can join
         //Player Server Listeners
-
+        IO.socket.on('gameUpdateACK'. App.Player.gameUpdateACK); //Player recieves Entire lobby data from host
     },
     onConnected : function(socID) {
         App.mySessionId = IO.socket.io.engine.id;
@@ -92,6 +93,11 @@ var IO = {
             if(data.joined) {
                 GRD.hostSocketId = data.hostSocketId;
                 console.log("Joined " + data.hostName + "'s lobby:  " + data.gameId);
+                GRD.Players[myName] = {
+                    mySocket: App.mySocketId,
+                    myPosition: [Math.random() * 100, 100, Math.random() * 100]
+                }
+                GameUpdater.prototype.initializePlayers({Players: GRD.Players, name: myName});
             } else {
                 console.log("Failed to join game!");
             }
@@ -115,8 +121,11 @@ var App = {
     Host : {
         playerJoinREQ : function(data) {
             console.log("Player " + data.name + " with socketId: " + data.mySocket + " is trying to join my lobby " + data.gameId);
-            let transmitData = {mySocket: data.mySocket, gameId: data.gameId}
-            sockets.emit('requestPlayerToJoin', transmitData);
+            try {
+                let transmitData = {mySocket: data.mySocket, gameId: data.gameId}
+                sockets.emit('requestPlayerToJoin', transmitData);
+                sendGameUpdate();
+            } catch (error) {console.log(error);}
         }
     },
     Player : {
@@ -125,6 +134,19 @@ var App = {
             myName = joinName;
             let data = {name: joinName, socketId: App.mySocketId, gameId: GameRoomData.gameId}
             IO.socket.emit('playerJoinREQ', data);
+        },
+        gameUpdateACK : function(data) {
+            if(GRD.Players.length != data.Players.length) remakePlayers(data.Players);
+            GRD = {
+                gameId: data.gameId,
+                hostSocketId: data.hostSocketId,
+                playerCount: data.playerCount,
+                playerLimit: data.playerLimit,
+                timeLeft: data.timeLeft,
+                timeLimit: data.timeLimit,
+                Players: data.Players
+            }
+            updatePlayers();
         }
     }
 }
@@ -132,3 +154,34 @@ var App = {
 //Run network.js
 IO.init();
 App.init();
+
+
+//--------------------------------------------------------------------------------------------
+//Help functions
+//--------------------------------------------------------------------------------------------
+
+//Send Whole game update for everyone with new player
+function sendGameUpdate() {
+    let data = {
+        gameId: GRD.gameId,
+        hostSocketId: GRD.hostSocketId,
+        playerCount: GRD.playerCount,
+        playerLimit: GRD.playerLimit,
+        timeLeft: GRD.timeLeft,
+        timeLimit: GRD.timeLimit,
+        Players: GRD.Players
+    }
+    IO.socket.emit('gameUpdate', data);
+}
+
+//Remake balls in lobby if there is new player data
+function remakePlayers(players) {
+
+}
+
+//Update player data in game
+function updatePlayers() {
+    for(let i = 0; i < GRD.Players.length; i++) {
+
+    }
+}
