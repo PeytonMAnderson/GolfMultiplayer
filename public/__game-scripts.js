@@ -949,43 +949,88 @@ function loadScene(sceneName, options, callback, scope) {
 }
 
 // gameUpdater.js
-var GameUpdater = pc.createScript('gameUpdater');
+var GameUpdater = pc.createScript('gameUpdater');   //GameUpdater Object
+var thisPlayer = undefined; //Contains data of this player's ball in the world
+var thisOther = undefined;  //Contains data of other players' balls in the world
 
 // initialize code called once per entity
 GameUpdater.prototype.initialize = function() {
-    this.player = this.app.root.findByName('ball');
-    this.other = this.app.root.findByName('other_ball');
+    thisPlayer = this.app.root.findByName('ball');
+    thisOther = this.app.root.findByName('other_ball');
+    if(sockets.id == GRD.hostSocketId) {
+        GRD.origin = thisPlayer.getPosition();
+        GRD.Players[getPlayer(myName)].myPosition = GRD.origin;
+    }
+    console.log("Loading Complete!");
+    loaded = true;
 };
 
 // update code called every frame
 GameUpdater.prototype.update = function(dt) {
-    this.updatePosition();
+    if(sockets.id == GRD.hostSocketId) {sendGameUpdate();}
 };
 
 //Update World Player Data
 GameUpdater.prototype.initializePlayers = function (data) {
-    this.playerArray = data.Players;
-    this.name = data.name;
-    for (let name in this.playerArray) {
-        if(name != this.name) {
-            this.playerArray[name].entity = this.createPlayerEnitity(this.playerArray[name]);
+    // data = {Players: name:}
+    this.playerArray = [];    //Create Array of All OTHER players in game
+    //For every other player in lobby create object
+    console.log(data);
+    for (let i = 0; i < data.Players.length; i++) {
+        if(data.Players[i] != 'EMPTY') {
+            if(data.Players[i].myName != data.name) {
+                console.log(data.Players[i]);
+                this.playerArray[data.Players[i].myName] = this.createPlayerEnitity(data.Players[i].myPosition);
+            }  else {
+                this.playerArray[data.name] = thisPlayer;
+            }
         }
     }
     this.initialized = true;
 };
 
-GameUpdater.prototype.createPlayerEnitity = function(data) {
-    var newPlayer = this.other.clone();
-    newPlayer.enabled = true;
-    this.other.getParent().addChild(newPlayer);
-    if(data) {
-        newPlayer.rigidbody.teleport(data.myPosition[0], data.myPosition[1], data.myPosition[2]);
-    }
+//Add Player
+GameUpdater.prototype.addPlayerBall = function (data) {
+    //data = {position: name: }
+    if(this.playerArray[data.name] != undefined) {console.log("BALL ALREADY EXISTS"); return;}
+    this.playerArray[data.name] = this.createPlayerEnitity(GRD.origin);
+}
+
+GameUpdater.prototype.createPlayerEnitity = function(pos) {
+    var newPlayer = thisOther.clone();  //Create a copy of the "Other Ball"
+    newPlayer.enabled = true;   //Enable it so it is visible in game
+    thisOther.getParent().addChild(newPlayer);  //Add Copy to the scene structure
+    newPlayer.position = pos;    // Move Ball to the starting location
     return newPlayer;
 };
 
-GameUpdater.prototype.updatePosition = function () {
+GameUpdater.prototype.updatePosition = function (data) {
+    //data = {position: name:}
+    if(!data.position) return;
+    if(data.name = myName) {
+        //Update MY POSITION
+        thisPlayer.rigidbody.teleport(data.position.x, data.position.y, data.position.z);
+    } else {
+        //Update OTHER'S POSITION
+        try {
+            if(this.playerArray[data.name].position) {
+                this.playerArray[data.name].rigidbody.teleport(data.position.x, data.position.y, data.position.z);
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    }
 };
+
+GameUpdater.prototype.getPosition = function(name) {
+    if(name == myName) {
+        return thisPlayer.getPosition(); //Return MY POSITION if asking for self
+    } else {
+        try {
+            if(this.playerArray[name].entity.position) return this.playerArray[name].entity.getPosition();  //Return Position of player with name
+        } catch (error) {console.log(error);}
+    }
+}
 
 // swap method called for script hot-reloading
 // inherit your script state here

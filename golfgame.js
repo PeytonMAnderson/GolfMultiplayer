@@ -1,10 +1,9 @@
 var io;
-var socket;
 var RoomData = new Map();
 
 exports.connectedToServer = function(sio, sock) {
     io = sio;
-    socket = sock;
+    let socket = sock;
     socket.emit('connected', socket.id);
     console.log("User Connected:    " + socket.id);
     
@@ -156,4 +155,7 @@ function requestPlayerToJoin(data) {
     }
 }
 
-function gameUpdate(data) {this.broadcast.to(parseInt(data.gameId)).emit('gameUpdateACK', data);}
+function gameUpdate(data) {
+    console.log(data.Players);
+    this.broadcast.to(parseInt(data.gameId)).emit('gameUpdateACK', data);
+}

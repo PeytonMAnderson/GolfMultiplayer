@@ -1,10 +1,11 @@
 //Open Socket to server
 console.log("Connecting to network...");
-var sockets = io();
+var sockets = io(); //Socket IO Connection 
 
 //Global Variables (Across Multiplayer)
 var GRD = {
     gameId: 0,
+    origin: undefined,
     hostSocketId: 'NULL',
     playerCount: 1,
     playerLimit: 8,
@@ -14,7 +15,8 @@ var GRD = {
 }
 
 //Local Variables (Only on this instance)
-var myName = 'anon';
+var myName = 'anon'; //My Name
+var loaded = false; //If the Script in PlayCanvas is completely initalized
 
 var IO = {
     init : function() {
@@ -30,7 +32,7 @@ var IO = {
         //Host Server Listeners
         IO.socket.on('playerJoinREQ', App.Host.playerJoinREQ); //Host determines if player can join
         //Player Server Listeners
-        IO.socket.on('gameUpdateACK'. App.Player.gameUpdateACK); //Player recieves Entire lobby data from host
+        IO.socket.on('gameUpdateACK', App.Player.gameUpdateACK); //Player recieves Entire lobby data from host
     },
     onConnected : function(socID) {
         App.mySessionId = IO.socket.io.engine.id;
@@ -62,7 +64,7 @@ var IO = {
 
         //See if name exists on server
         let newData = {gameId: parseInt(currentGameId), socketId: App.mySocketId}
-        GRD.gameId = currentGameId;
+        GRD.gameId = parseInt(currentGameId);
         try {IO.socket.emit("getName", newData);} catch (error) {console.log(error);}
     },
     getNameACK : function (data) {
@@ -88,16 +90,29 @@ var IO = {
             }
         }
     },
-    joinSocketACK : function (data) {
+    joinSocketACK : async function (data) {
         try {
             if(data.joined) {
+                //Create Host in Lobby
                 GRD.hostSocketId = data.hostSocketId;
                 console.log("Joined " + data.hostName + "'s lobby:  " + data.gameId);
-                GRD.Players[myName] = {
+                resetPlayersArray();
+                let index = findFirstOpen(GRD.Players);
+                GRD.Players[index] = {
+                    myName: myName,
                     mySocket: App.mySocketId,
-                    myPosition: [Math.random() * 100, 100, Math.random() * 100]
+                    myPosition: undefined
                 }
-                GameUpdater.prototype.initializePlayers({Players: GRD.Players, name: myName});
+
+                //Wait for Scene to load if it hasn't yet
+                function checkLoading() {
+                    if(loaded) {
+                        GameUpdater.prototype.initializePlayers({Players: GRD.Players, name: myName});
+                    } else {
+                        window.setTimeout(checkLoading, 50);
+                    }
+                }
+                checkLoading();
             } else {
                 console.log("Failed to join game!");
             }
@@ -124,7 +139,18 @@ var App = {
             try {
                 let transmitData = {mySocket: data.mySocket, gameId: data.gameId}
                 sockets.emit('requestPlayerToJoin', transmitData);
-                sendGameUpdate();
+                let index = findFirstOpen(GRD.Players);
+                if(index != null) {
+                    GRD.Players[index] = {
+                        myName: data.name,
+                        mySocket: data.mySocket,
+                        myPosition: GRD.origin
+                    }
+                    updatePlayers();    //Update Local Players
+                    sendGameUpdate();   //Send New data to Everyone in Lobby
+                } else {
+                    console.log("GAME ROOM FULL");
+                }
             } catch (error) {console.log(error);}
         }
     },
@@ -136,17 +162,32 @@ var App = {
             IO.socket.emit('playerJoinREQ', data);
         },
         gameUpdateACK : function(data) {
-            if(GRD.Players.length != data.Players.length) remakePlayers(data.Players);
-            GRD = {
-                gameId: data.gameId,
-                hostSocketId: data.hostSocketId,
-                playerCount: data.playerCount,
-                playerLimit: data.playerLimit,
-                timeLeft: data.timeLeft,
-                timeLimit: data.timeLimit,
-                Players: data.Players
+            //Wait for Scene to load if it hasn't yet
+            function checkLoading() {
+                if(loaded) {
+                    
+                    if(findFirstOpen(GRD.Players) == null || findFirstOpen(GRD.Players) != findFirstOpen(data.Players)) {
+                        //If different ammount of players, reset players
+                        resetPlayers(data.Players);
+                    } else {
+                        //Update each players position
+                        updatePlayers();
+                    }
+                    GRD = {
+                        gameId: parseInt(data.gameId),
+                        hostSocketId: data.hostSocketId,
+                        origin: data.origin,
+                        playerCount: data.playerCount,
+                        playerLimit: data.playerLimit,
+                        timeLeft: data.timeLeft,
+                        timeLimit: data.timeLimit,
+                        Players: data.Players
+                    }
+                } else {
+                    window.setTimeout(checkLoading, 50);
+                }
             }
-            updatePlayers();
+            checkLoading();
         }
     }
 }
@@ -154,7 +195,6 @@ var App = {
 //Run network.js
 IO.init();
 App.init();
-
 
 //--------------------------------------------------------------------------------------------
 //Help functions
@@ -165,6 +205,7 @@ function sendGameUpdate() {
     let data = {
         gameId: GRD.gameId,
         hostSocketId: GRD.hostSocketId,
+        origin: GRD.origin,
         playerCount: GRD.playerCount,
         playerLimit: GRD.playerLimit,
         timeLeft: GRD.timeLeft,
@@ -174,14 +215,45 @@ function sendGameUpdate() {
     IO.socket.emit('gameUpdate', data);
 }
 
-//Remake balls in lobby if there is new player data
-function remakePlayers(players) {
-
+//Reset Players if Player count mis-match
+function resetPlayers(newPlayers) {
+    console.log("reseting players");
+    let data = {name: myName, Players: newPlayers}
+    GameUpdater.prototype.initializePlayers(data);
 }
+
 
 //Update player data in game
 function updatePlayers() {
-    for(let i = 0; i < GRD.Players.length; i++) {
-
+    for (let i = 0; i < GRD.Players.length; i++) {
+        let data = {name: GRD.Players[i].myName, position: GRD.Players[i].myPosition}
+        GameUpdater.prototype.updatePosition(data);
     }
+}
+
+//Find my index
+function getPlayer(name) {
+    for(let i = 0; i < GRD.Players.length; i++) {
+        if(GRD.Players[i].myName == name) {
+            return i;
+        }
+    }
+}
+
+//Reset Players Array
+function resetPlayersArray() {
+    GRD.Players = [];
+    for(let i = 0; i < GRD.playerLimit; i++) {
+        GRD.Players[i] = 'EMPTY';
+    }
+}
+
+//Find First open slot
+function findFirstOpen(Array) {
+    for(let i = 0; i < Array.length; i++) {
+        if(Array[i] == 'EMPTY') {
+            return i;
+        }
+    }
+    return null;
 }
