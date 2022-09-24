@@ -88,16 +88,28 @@ Movement.prototype.update = function(dt) {
         // calculate force vector
         var rX = Math.cos(-Math.PI * 0.25);
         var rY = Math.sin(-Math.PI * 0.25);
-        this.force.set(this.force.x * rX - this.force.z * rY, 0, this.force.z * rX + this.force.x * rY);
+        this.force.set(this.force.x * rX - this.force.z * rY,  0, this.force.z * rX + this.force.x * rY);
 
         // clamp force to the speed
         if (this.force.length() > this.speed) {
             this.force.normalize().scale(this.speed);
         }
     }
-
-    // apply impulse to move the entity
-    this.entity.rigidbody.applyImpulse(this.force);
+    //-------------------------------------------------------------------------------------------------
+    //NETWORKING
+    try {
+        if(GRD.hostSocketId == sockets.id) {
+            // apply impulse to move the entity
+            this.entity.rigidbody.applyImpulse(this.force);
+        } else {
+            //Send to host for processing
+            sendPlayerInput(this.force);
+        }
+    } catch (error) {
+        console.log(error);
+        this.entity.rigidbody.applyImpulse(this.force);
+    }
+    //-------------------------------------------------------------------------------------------------
 };
 
 
@@ -117,9 +129,8 @@ Teleportable.prototype.update = function(dt) {
     // Make sure we don't fall over. If we do then
     // teleport to the last location
     var pos = this.entity.getPosition();
-    if (pos.y < 0) {
-        this.teleport(this.lastTeleportFrom, this.lastTeleportTo);
-    }
+    if (!this.enabled) return;
+    if (pos.y < 0) {this.teleport(this.lastTeleportFrom, this.lastTeleportTo);}
 };
 
 
@@ -948,26 +959,50 @@ function loadScene(sceneName, options, callback, scope) {
     }
 }
 
-// gameUpdater.js
+//-------------------------------------------------------------------------------------------------
+//NETWORKING
 var GameUpdater = pc.createScript('gameUpdater');   //GameUpdater Object
-var thisPlayer = undefined; //Contains data of this player's ball in the world
-var thisOther = undefined;  //Contains data of other players' balls in the world
+var thisPlayer; //Contains data of this player's ball in the world
+var thisOther;  //Contains data of other players' balls in the world
 
 // initialize code called once per entity
 GameUpdater.prototype.initialize = function() {
     thisPlayer = this.app.root.findByName('ball');
     thisOther = this.app.root.findByName('other_ball');
-    if(sockets.id == GRD.hostSocketId) {
-        GRD.origin = thisPlayer.getPosition();
-        GRD.Players[getPlayer(myName)].myPosition = GRD.origin;
-    }
     console.log("Loading Complete!");
     loaded = true;
 };
 
 // update code called every frame
 GameUpdater.prototype.update = function(dt) {
-    if(sockets.id == GRD.hostSocketId) {sendGameUpdate();}
+    //If this script is being ran without network.js
+    try {
+        if(GRD);
+    } catch (error) {
+        console.log(error);
+        return;
+    }
+
+    //Run this script with network.js
+    if(sockets.id == GRD.hostSocketId) {
+        for(let name in this.playerArray) {
+            let i = getPlayer(name);
+            //If player went out of bounds, reset location
+            if(this.playerArray[name].getPosition().y < 0) {
+                this.playerArray[name].rigidbody.teleport(GRD.origin.x, GRD.origin.y, GRD.origin.z);
+                this.playerArray[name].rigidbody.angularVelocity = pc.Vec3.ZERO;
+                this.playerArray[name].rigidbody.linearVelocity = pc.Vec3.ZERO;
+            }
+            GRD.Players[i].myPosition = this.playerArray[name].getPosition().clone();
+            GRD.Players[i].myLinVelocity = this.playerArray[name].rigidbody.linearVelocity;
+            GRD.Players[i].myAngVelocity = this.playerArray[name].rigidbody.angularVelocity;
+        }
+        //Prevent Teleportation if not host
+        if(!thisPlayer.script.teleportable.enabled) thisPlayer.script.teleportable.enabled = true;
+        sendGameUpdate();
+    } else {
+        if(thisPlayer.script.teleportable.enabled) thisPlayer.script.teleportable.enabled = false;
+    }
 };
 
 //Update World Player Data
@@ -975,7 +1010,6 @@ GameUpdater.prototype.initializePlayers = function (data) {
     // data = {Players: name:}
     this.playerArray = [];    //Create Array of All OTHER players in game
     //For every other player in lobby create object
-    console.log(data);
     for (let i = 0; i < data.Players.length; i++) {
         if(data.Players[i] != 'EMPTY') {
             if(data.Players[i].myName != data.name) {
@@ -1000,21 +1034,29 @@ GameUpdater.prototype.createPlayerEnitity = function(pos) {
     var newPlayer = thisOther.clone();  //Create a copy of the "Other Ball"
     newPlayer.enabled = true;   //Enable it so it is visible in game
     thisOther.getParent().addChild(newPlayer);  //Add Copy to the scene structure
-    newPlayer.position = pos;    // Move Ball to the starting location
+    newPlayer.rigidbody.teleport(pos.x, pos.y, pos.z);   // Move Ball to the starting location
     return newPlayer;
 };
 
 GameUpdater.prototype.updatePosition = function (data) {
     //data = {position: name:}
     if(!data.position) return;
-    if(data.name = myName) {
+    if(data.name == myName) {
         //Update MY POSITION
         thisPlayer.rigidbody.teleport(data.position.x, data.position.y, data.position.z);
+        thisPlayer.rigidbody.angularVelocity = pc.Vec3.ZERO;
+        thisPlayer.rigidbody.linearVelocity = pc.Vec3.ZERO;
+        thisPlayer.rigidbody.applyImpulse(pc.Vec3.ZERO);
+        //thisPlayer.rigidbody.applyImpulse(data.lv);
+        //thisPlayer.rigidbody.applyTorqueImpulse(data.av);
     } else {
         //Update OTHER'S POSITION
         try {
-            if(this.playerArray[data.name].position) {
+            if(this.playerArray[data.name].rigidbody) {
                 this.playerArray[data.name].rigidbody.teleport(data.position.x, data.position.y, data.position.z);
+                this.playerArray[data.name].rigidbody.angularVelocity = pc.Vec3.ZERO;
+                this.playerArray[data.name].rigidbody.linearVelocity = pc.Vec3.ZERO;
+                this.playerArray[data.name].rigidbody.applyImpulse(data.lv);
             }
         } catch (error) {
             console.log(error);
@@ -1032,10 +1074,7 @@ GameUpdater.prototype.getPosition = function(name) {
     }
 }
 
-// swap method called for script hot-reloading
-// inherit your script state here
-// GameUpdater.prototype.swap = function(old) { };
-
-// to learn more about script anatomy, please read:
-// https://developer.playcanvas.com/en/user-manual/scripting/
+GameUpdater.prototype.applyInput = function(data) {
+    if(this.playerArray[data.name].rigidbody) {this.playerArray[data.name].rigidbody.applyImpulse(data.force);}}
+//-------------------------------------------------------------------------------------------------
 

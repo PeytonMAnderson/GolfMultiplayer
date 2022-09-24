@@ -26,8 +26,7 @@ exports.connectedToServer = function(sio, sock) {
                     } else {
                         //Player is just a player
                         console.log("Player is leaving lobby!");
-                        let data = {mySocket: lobbies[0]}
-                        socket.broadcast.to(hostOfLobby.hostSocketId).emit('playerLeft', data);   //Send User who left to the Host
+                        socket.broadcast.to(hostOfLobby.hostSocketId).emit('playerLeft', lobbies[0]);   //Send User who left to the Host
                     }
                 }
             }
@@ -40,6 +39,7 @@ exports.connectedToServer = function(sio, sock) {
     socket.on('playerJoinREQ', playerJoinREQ);  //Player wants to join host's lobby
     socket.on('requestPlayerToJoin', requestPlayerToJoin); //Host accepted player, let server add player to lobby
     socket.on('gameUpdate', gameUpdate); //Host sending new data of ENTIRE lobby to EVERYONE
+    socket.on('sendPlayerInputREQ', sendPlayerInputREQ); //Player wants to apply input, send to host for processing
 }
 
 
@@ -83,6 +83,7 @@ exports.getGame = function(gameId) {
 exports.createGame = function(gameId, mySocket) {
     try {
         let room = RoomData.get(gameId);
+        if(room == undefined) return;
         room.hostSocketId = mySocket;
         RoomData.set(gameId, room);
     } catch (error) {
@@ -107,6 +108,7 @@ function cleanUpLobbies() {
 function getName(data) {
     try {
         let room = RoomData.get(parseInt(data.gameId));
+        if(room == undefined) return;
         let retData = {error: false, gameId: data.gameId, hostSocketId: room.hostSocketId, hostName: room.hostName}
         if(room.hostSocketId == data.socketId) {
             this.emit('getNameACK', retData);
@@ -130,6 +132,7 @@ function joinSocket(gameId) {
         function cout(value, key, map) {thisId = key;}
         console.log(thisId + " joined " + gameId);
         let room  = RoomData.get(parseInt(gameId));
+        if(room == undefined) return;
         data = {gameId: gameId, hostSocketId: room.hostSocketId, hostName: room.hostName, joined: true}
         this.emit('joinSocketACK', data);
     } catch (error) {
@@ -140,6 +143,7 @@ function joinSocket(gameId) {
 function playerJoinREQ(data) {
     try {
         let room = RoomData.get(parseInt(data.gameId));
+        if(room == undefined) return;
         console.log(data.socketId + " is trying to connect to " + data.gameId);
         this.broadcast.to(room.hostSocketId).emit('playerJoinREQ', data);
     } catch (error) {console.log(error);}
@@ -156,6 +160,11 @@ function requestPlayerToJoin(data) {
 }
 
 function gameUpdate(data) {
-    console.log(data.Players);
     this.broadcast.to(parseInt(data.gameId)).emit('gameUpdateACK', data);
+}
+
+function sendPlayerInputREQ(data) {
+    let room = RoomData.get(parseInt(data.gameId));
+    if(room == undefined) return;
+    this.broadcast.to(room.hostSocketId).emit('sendPlayerInputREQ', data);
 }

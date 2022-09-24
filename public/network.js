@@ -31,8 +31,11 @@ var IO = {
 
         //Host Server Listeners
         IO.socket.on('playerJoinREQ', App.Host.playerJoinREQ); //Host determines if player can join
+        IO.socket.on('playerLeft', App.Host.playerLeft);    //Host removes player from lobby
+        IO.socket.on('sendPlayerInputREQ', App.Host.sendPlayerInputREQ); //Process User Request
         //Player Server Listeners
         IO.socket.on('gameUpdateACK', App.Player.gameUpdateACK); //Player recieves Entire lobby data from host
+        IO.socket.on('hostLeft', App.Player.hostLeft);  //The host has left the lobby
     },
     onConnected : function(socID) {
         App.mySessionId = IO.socket.io.engine.id;
@@ -101,12 +104,23 @@ var IO = {
                 GRD.Players[index] = {
                     myName: myName,
                     mySocket: App.mySocketId,
-                    myPosition: undefined
+                    myPosition: undefined,
+                    myLinVelocity: undefined,
+                    myAngVelocity: undefined
                 }
 
                 //Wait for Scene to load if it hasn't yet
                 function checkLoading() {
                     if(loaded) {
+                        const org = {
+                            x: thisPlayer.getPosition().x,
+                            y: thisPlayer.getPosition().y + 2,
+                            z: thisPlayer.getPosition().z
+                        }
+                        GRD.origin = org;
+                        GRD.Players[index].myPosition = thisPlayer.getPosition();
+                        GRD.Players[index].myLinVelocity = thisPlayer.rigidbody.linearVelocity;
+                        GRD.Players[index].myAngVelocity = thisPlayer.rigidbody.angularVelocity;
                         GameUpdater.prototype.initializePlayers({Players: GRD.Players, name: myName});
                     } else {
                         window.setTimeout(checkLoading, 50);
@@ -137,21 +151,41 @@ var App = {
         playerJoinREQ : function(data) {
             console.log("Player " + data.name + " with socketId: " + data.mySocket + " is trying to join my lobby " + data.gameId);
             try {
+
+                if(getPlayer(data.name)) {
+                    console.log("Player Already in Lobby!");
+                    return;
+                }
+                if(GRD.playerCount >= GRD.playerLimit) {
+                    console.log("Room is Already full!");
+                    return;
+                }
+
                 let transmitData = {mySocket: data.mySocket, gameId: data.gameId}
                 sockets.emit('requestPlayerToJoin', transmitData);
                 let index = findFirstOpen(GRD.Players);
-                if(index != null) {
-                    GRD.Players[index] = {
-                        myName: data.name,
-                        mySocket: data.mySocket,
-                        myPosition: GRD.origin
-                    }
-                    updatePlayers();    //Update Local Players
-                    sendGameUpdate();   //Send New data to Everyone in Lobby
-                } else {
-                    console.log("GAME ROOM FULL");
+                GRD.Players[index] = {
+                    myName: data.name,
+                    mySocket: data.mySocket,
+                    myPosition: GRD.origin,
+                    myLinVelocity: {x: 0, y: 0, z: 0},
+                    myAngVelocity: {x: 0, y: 0, z: 0}
                 }
+                console.log("Adding " + data.name + " to lobby!");
+                addPlayer(GRD.Players[index]);
+                sendGameUpdate();   //Send New data to Everyone in Lobby
             } catch (error) {console.log(error);}
+        },
+        playerLeft : function(playerSocket) {
+            for(let i = 0; i < GRD.Players.length; i++) {
+                if(GRD.Players[i].mySocket == playerSocket) {
+                    console.log(GRD.Players[i].myName + " has left my lobby!");
+                }
+            }
+        },
+        sendPlayerInputREQ : function(data) {
+            let input = {force: data.data, name: data.name}
+            GameUpdater.prototype.applyInput(input);
         }
     },
     Player : {
@@ -188,6 +222,9 @@ var App = {
                 }
             }
             checkLoading();
+        },
+        hostLeft : function() {
+            console.log("The host has left the lobby!");
         }
     }
 }
@@ -222,12 +259,25 @@ function resetPlayers(newPlayers) {
     GameUpdater.prototype.initializePlayers(data);
 }
 
+//Add player
+function addPlayer(Player) {
+    let data = {name: Player.myName, position: Player.myPosition}
+    GameUpdater.prototype.addPlayerBall(data);
+}
+
 
 //Update player data in game
 function updatePlayers() {
     for (let i = 0; i < GRD.Players.length; i++) {
-        let data = {name: GRD.Players[i].myName, position: GRD.Players[i].myPosition}
-        GameUpdater.prototype.updatePosition(data);
+        if(GRD.Players[i] != 'EMPTY') {
+            let data = {
+                name: GRD.Players[i].myName, 
+                position: GRD.Players[i].myPosition,
+                lv: GRD.Players[i].myLinVelocity,
+                av: GRD.Players[i].myAngVelocity
+            }
+            GameUpdater.prototype.updatePosition(data);
+        }
     }
 }
 
@@ -256,4 +306,10 @@ function findFirstOpen(Array) {
         }
     }
     return null;
+}
+
+//Send User Input
+function sendPlayerInput(data) {
+    let packet = {gameId: GRD.gameId, data: data, name: myName}
+    IO.socket.emit('sendPlayerInputREQ', packet);
 }
