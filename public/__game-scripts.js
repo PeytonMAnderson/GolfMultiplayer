@@ -95,6 +95,8 @@ Movement.prototype.update = function(dt) {
             this.force.normalize().scale(this.speed);
         }
     }
+
+
     //-------------------------------------------------------------------------------------------------
     //NETWORKING
     try {
@@ -959,6 +961,7 @@ function loadScene(sceneName, options, callback, scope) {
     }
 }
 
+// gameUpdater.js
 //-------------------------------------------------------------------------------------------------
 //NETWORKING
 var GameUpdater = pc.createScript('gameUpdater');   //GameUpdater Object
@@ -997,6 +1000,7 @@ GameUpdater.prototype.update = function(dt) {
             GRD.Players[i].myLinVelocity = this.playerArray[name].rigidbody.linearVelocity;
             GRD.Players[i].myAngVelocity = this.playerArray[name].rigidbody.angularVelocity;
         }
+
         //Prevent Teleportation if not host
         if(!thisPlayer.script.teleportable.enabled) thisPlayer.script.teleportable.enabled = true;
         sendGameUpdate();
@@ -1028,7 +1032,7 @@ GameUpdater.prototype.addPlayerBall = function (data) {
     //data = {position: name: }
     if(this.playerArray[data.name] != undefined) {console.log("BALL ALREADY EXISTS"); return;}
     this.playerArray[data.name] = this.createPlayerEnitity(GRD.origin);
-}
+};
 
 GameUpdater.prototype.createPlayerEnitity = function(pos) {
     var newPlayer = thisOther.clone();  //Create a copy of the "Other Ball"
@@ -1072,9 +1076,9 @@ GameUpdater.prototype.getPosition = function(name) {
             if(this.playerArray[name].entity.position) return this.playerArray[name].entity.getPosition();  //Return Position of player with name
         } catch (error) {console.log(error);}
     }
-}
+};
 
 GameUpdater.prototype.applyInput = function(data) {
-    if(this.playerArray[data.name].rigidbody) {this.playerArray[data.name].rigidbody.applyImpulse(data.force);}}
+    if(this.playerArray[data.name].rigidbody) {this.playerArray[data.name].rigidbody.applyImpulse(data.force);}};
 //-------------------------------------------------------------------------------------------------
 
