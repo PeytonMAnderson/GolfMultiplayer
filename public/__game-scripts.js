@@ -1082,3 +1082,78 @@ GameUpdater.prototype.applyInput = function(data) {
     if(this.playerArray[data.name].rigidbody) {this.playerArray[data.name].rigidbody.applyImpulse(data.force);}};
 //-------------------------------------------------------------------------------------------------
 
+// join-ui.js
+var JoinUi = pc.createScript('joinUi');
+
+JoinUi.attributes.add('css', {type: 'asset', assetType:'css', title: 'CSS Asset'});
+JoinUi.attributes.add('html', {type: 'asset', assetType:'html', title: 'HTML Asset'});
+
+// initialize code called once per entity
+JoinUi.prototype.initialize = function() {
+    // create STYLE element
+    var style = document.createElement('style');
+
+    // append to head
+    document.head.appendChild(style);
+    style.innerHTML = this.css.resource || '';
+
+    // Add the HTML
+    this.div = document.createElement('div');
+    this.div.classList.add('container');
+    this.div.innerHTML = this.html.resource || '';
+
+    // append to body
+    // can be appended somewhere else
+    // it is recommended to have some container element
+    // to prevent iOS problems of overfloating elements off the screen
+
+    //--------------------------------------------------------------------------
+    //NETWORKING
+    try {
+        if(myName != 'anon' && myName != '' && myName != undefined) {
+            joinComplete();
+            return;
+        }
+    } catch (error) {
+        console.log(error);
+    }
+    //--------------------------------------------------------------------------
+    
+    document.body.appendChild(this.div);
+    this.bindEvents(this.div);
+};
+
+JoinUi.prototype.bindEvents = function(div) {
+
+    let join_input = this.div.querySelector('.createPlayerName');
+    let join_button = this.div.querySelector('.button');
+
+    if(join_button) {
+        console.log("Found Button");
+        
+        join_button.addEventListener('click', function() {
+            console.log("Clicked Button");
+            console.log(join_input.value);
+            if(join_input.value) {
+                joinComplete();
+                document.body.removeChild(div);
+            }
+        }, false);
+    }
+};
+
+function joinComplete() {
+    loadScene('Main Scene', { hierarchy: true, settings: true }, (err, loadedSceneRootEntity) => {
+        if (err) {
+            console.error(err);
+        } else {
+            // Scene hierachary has successfully been loaded
+            console.log("LOADED NEW SCENE");
+        }
+    });
+}
+
+
+
+
+

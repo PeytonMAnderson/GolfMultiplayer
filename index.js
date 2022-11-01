@@ -17,6 +17,7 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/', (req, res) => {
     res.sendFile(__dirname + '/nav/main.html');
 });
+
 app.get('/:query', (req, res) => {
     let gameId = req.params.query;
     let name;
