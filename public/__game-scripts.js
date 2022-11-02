@@ -1017,7 +1017,6 @@ GameUpdater.prototype.initializePlayers = function (data) {
     for (let i = 0; i < data.Players.length; i++) {
         if(data.Players[i] != 'EMPTY') {
             if(data.Players[i].myName != data.name) {
-                console.log(data.Players[i]);
                 this.playerArray[data.Players[i].myName] = this.createPlayerEnitity(data.Players[i].myPosition);
             }  else {
                 this.playerArray[data.name] = thisPlayer;
@@ -1106,11 +1105,13 @@ JoinUi.prototype.initialize = function() {
     // can be appended somewhere else
     // it is recommended to have some container element
     // to prevent iOS problems of overfloating elements off the screen
+    document.body.appendChild(this.div);
 
     //--------------------------------------------------------------------------
     //NETWORKING
     try {
-        if(myName != 'anon' && myName != '' && myName != undefined) {
+        console.log(GRD.hostSocketId);
+        if(App.mySocketId.toString() == GRD.hostSocketId) {
             joinComplete();
             return;
         }
@@ -1118,12 +1119,10 @@ JoinUi.prototype.initialize = function() {
         console.log(error);
     }
     //--------------------------------------------------------------------------
-    
-    document.body.appendChild(this.div);
-    this.bindEvents(this.div);
+    this.bindEvents();
 };
 
-JoinUi.prototype.bindEvents = function(div) {
+JoinUi.prototype.bindEvents = function() {
 
     let join_input = this.div.querySelector('.createPlayerName');
     let join_button = this.div.querySelector('.button');
@@ -1134,15 +1133,20 @@ JoinUi.prototype.bindEvents = function(div) {
         join_button.addEventListener('click', function() {
             console.log("Clicked Button");
             console.log(join_input.value);
-            if(join_input.value) {
-                joinComplete();
-                document.body.removeChild(div);
-            }
+            //-----------------------------------------------------------
+            //NETWORKING
+            try {
+                myName = join_input.value;
+                App.Player.sendName();
+            //-----------------------------------------------------------
+            } catch (error) {console.log(error);}
         }, false);
     }
 };
 
 function joinComplete() {
+    let div = document.body.querySelector('.container');
+    document.body.removeChild(div);
     loadScene('Main Scene', { hierarchy: true, settings: true }, (err, loadedSceneRootEntity) => {
         if (err) {
             console.error(err);
