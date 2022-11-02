@@ -194,6 +194,21 @@ Teleport.prototype.onTriggerEnter = function (otherEntity) {
 
     // teleport entity to the target entity
     otherEntity.script.teleportable.teleport(this.entity, this.target);
+    
+    //-----------------------------------------------------------------------------------------------
+    //NETWORK
+    try {
+        //If player is not the host, then do not activate
+        if(sockets.id != GRD.hostSocketId) {
+            return;
+        }
+        
+    } catch (error) {
+        console.log(error);
+    }
+    //------------------------------------------------------------------------------------------------
+
+    //Load Next Scene
     loadScene('Scene 2', { hierarchy: true, settings: true }, (err, loadedSceneRootEntity) => {
         if (err) {
             console.error(err);
@@ -967,6 +982,10 @@ function loadScene(sceneName, options, callback, scope) {
 var GameUpdater = pc.createScript('gameUpdater');   //GameUpdater Object
 var thisPlayer; //Contains data of this player's ball in the world
 var thisOther;  //Contains data of other players' balls in the world
+//Incremented each update cycle
+var tick = 0;
+//How many update frames before a game update is sent to players
+var tick_ratio = 2;
 
 // initialize code called once per entity
 GameUpdater.prototype.initialize = function() {
@@ -986,6 +1005,10 @@ GameUpdater.prototype.update = function(dt) {
         return;
     }
 
+    tick++;
+    if(tick <= tick_ratio) return;
+    tick = 0;
+
     //Run this script with network.js
     if(sockets.id == GRD.hostSocketId) {
         for(let name in this.playerArray) {
@@ -998,8 +1021,8 @@ GameUpdater.prototype.update = function(dt) {
                 this.playerArray[name].rigidbody.linearVelocity = pc.Vec3.ZERO;
             }
             GRD.Players[i].myPosition = this.playerArray[name].getPosition().clone();
-            GRD.Players[i].myLinVelocity = this.playerArray[name].rigidbody.linearVelocity;
-            GRD.Players[i].myAngVelocity = this.playerArray[name].rigidbody.angularVelocity;
+            GRD.Players[i].myLinVelocity = this.playerArray[name].rigidbody.linearVelocity.clone();
+            GRD.Players[i].myAngVelocity = this.playerArray[name].rigidbody.angularVelocity.clone();
         }
 
         //Prevent Teleportation if not host
@@ -1060,9 +1083,8 @@ GameUpdater.prototype.createPlayerEnitity = function(pos, lin_vel, ang_vel) {
     newPlayer.enabled = true;   //Enable it so it is visible in game
     thisOther.getParent().addChild(newPlayer);  //Add Copy to the scene structure
     newPlayer.rigidbody.teleport(pos.x, pos.y, pos.z);   // Move Ball to the starting location
-    newPlayer.rigidbody.angularVelocity = pc.Vec3.ZERO;
-    newPlayer.rigidbody.linearVelocity = pc.Vec3.ZERO;
-    newPlayer.rigidbody.applyImpulse(lin_vel);
+    newPlayer.rigidbody.angularVelocity = ang_vel;
+    newPlayer.rigidbody.linearVelocity = lin_vel;
     return newPlayer;
 };
 
@@ -1072,19 +1094,15 @@ GameUpdater.prototype.updatePosition = function (data) {
     if(data.name == myName) {
         //Update MY POSITION
         thisPlayer.rigidbody.teleport(data.position.x, data.position.y, data.position.z);
-        thisPlayer.rigidbody.angularVelocity = pc.Vec3.ZERO;
-        thisPlayer.rigidbody.linearVelocity = pc.Vec3.ZERO;
-        thisPlayer.rigidbody.applyImpulse(pc.Vec3.ZERO);
-        //thisPlayer.rigidbody.applyImpulse(data.lv);
-        //thisPlayer.rigidbody.applyTorqueImpulse(data.av);
+        thisPlayer.rigidbody.angularVelocity = data.av;
+        thisPlayer.rigidbody.linearVelocity = data.lv;
     } else {
         //Update OTHER'S POSITION
         try {
             if(this.playerArray[data.name].rigidbody) {
                 this.playerArray[data.name].rigidbody.teleport(data.position.x, data.position.y, data.position.z);
-                this.playerArray[data.name].rigidbody.angularVelocity = pc.Vec3.ZERO;
-                this.playerArray[data.name].rigidbody.linearVelocity = pc.Vec3.ZERO;
-                this.playerArray[data.name].rigidbody.applyImpulse(data.lv);
+                this.playerArray[data.name].rigidbody.angularVelocity = data.av;
+                this.playerArray[data.name].rigidbody.linearVelocity = data.lv;
             }
         } catch (error) {
             console.log(error);
