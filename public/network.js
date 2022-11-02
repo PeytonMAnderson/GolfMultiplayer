@@ -2,6 +2,8 @@
 console.log("Connecting to network...");
 var sockets = io(); //Socket IO Connection 
 
+var lostplayers = new Map();
+
 //Global Variables (Across Multiplayer)
 var GRD = {
     gameId: 0,
@@ -11,12 +13,14 @@ var GRD = {
     playerLimit: 8,
     timeLeft: 'NULL',
     timeLimit: 120,
-    Players: []
+    Players: [],
+    LostPlayers: lostplayers
 }
 
 //Local Variables (Only on this instance)
 var myName = 'anon'; //My Name
 var loaded = false; //If the Script in PlayCanvas is completely initalized
+var validName = false;
 
 var IO = {
     init : function() {
@@ -38,9 +42,14 @@ var IO = {
         IO.socket.on('hostLeft', App.Player.hostLeft);  //The host has left the lobby
     },
     onConnected : function(socID) {
+        if(App.mySocketId != undefined && App.mySocketId != '') {
+            //Another connected request is coming but I am already connected!
+            console.log("I AM ALREADY CONNECTED: " + App.mySocketId + '   ' + sockets.id);
+            return;
+        }
         App.mySessionId = IO.socket.io.engine.id;
         App.mySocketId = socID;
-        console.log('Connected! Socket ID: ' + App.mySocketId);
+        console.log('Connected! Socket ID: ' + App.mySocketId );
         console.log("Creating Lobby...");
 
         //Get Room code from URL
@@ -76,8 +85,8 @@ var IO = {
             console.log("Lobby already created by: " + data.hostName);
             console.log("Joining Lobby...");
             try {
-                let sendData = {name: myName, mySocket: App.mySocketId, gameId: GRD.gameId}
-                IO.socket.emit('playerJoinREQ', sendData);
+                // let sendData = {name: myName, mySocket: App.mySocketId, gameId: GRD.gameId}
+                // IO.socket.emit('playerJoinREQ', sendData);
             } catch (error) {
                 console.log(error);
             }
@@ -149,28 +158,44 @@ var App = {
     },
     Host : {
         playerJoinREQ : function(data) {
-            console.log("Player " + data.name + " with socketId: " + data.mySocket + " is trying to join my lobby " + data.gameId);
+            console.log("Player " + data.name + " with socketId: " + data.socketId + " is trying to join my lobby " + data.gameId);
             try {
-
-                if(getPlayer(data.name)) {
-                    console.log("Player Already in Lobby!");
-                    return;
-                }
-                if(GRD.playerCount >= GRD.playerLimit) {
-                    console.log("Room is Already full!");
-                    return;
-                }
-
-                let transmitData = {mySocket: data.mySocket, gameId: data.gameId}
+                if(data.name == undefined || data.name == '') {console.log("Player has no name!"); return;}
+                if(data.socketId == undefined || data.socketId == '') {console.log("Player has no SocketId!");return;}
+                if(GRD.playerCount >= GRD.playerLimit) {console.log("Room is Already full!");return;}
+                if(hasPlayer(data.name)) {console.log("Player Already in Lobby!");return;}
+                
+                let transmitData = {mySocket: data.socketId, gameId: data.gameId}
                 sockets.emit('requestPlayerToJoin', transmitData);
+
                 let index = findFirstOpen(GRD.Players);
-                GRD.Players[index] = {
-                    myName: data.name,
-                    mySocket: data.mySocket,
-                    myPosition: GRD.origin,
-                    myLinVelocity: {x: 0, y: 0, z: 0},
-                    myAngVelocity: {x: 0, y: 0, z: 0}
+                if(index == null) {console.log("Room is Already full!");return;}
+
+                //Determine if incoming player is history in lobby
+                if(GRD.LostPlayers.has(data.name)) {
+                    //There was an existing player in the Lost Database, re-create player
+                    let ret_player = GRD.LostPlayers.get(data.name);
+                    GRD.Players[index] = {
+                        myName: ret_player.myName,
+                        mySocket: data.socketId,
+                        myPosition: ret_player.myPosition,
+                        myLinVelocity: ret_player.myLinVelocity,
+                        myAngVelocity: ret_player.myAngVelocity
+                    }
+                    //Destroy old memory of Lost Player
+                    GRD.LostPlayers.delete(data.name);
+                } else {
+                    //New Player is not in history records, create brand-new player
+                    GRD.Players[index] = {
+                        myName: data.name,
+                        mySocket: data.socketId,
+                        myPosition: GRD.origin,
+                        myLinVelocity: {x: 0, y: 0, z: 0},
+                        myAngVelocity: {x: 0, y: 0, z: 0}
+                    }
                 }
+
+                //Finalize New Player joining
                 console.log("Adding " + data.name + " to lobby!");
                 addPlayer(GRD.Players[index]);
                 sendGameUpdate();   //Send New data to Everyone in Lobby
@@ -180,6 +205,9 @@ var App = {
             for(let i = 0; i < GRD.Players.length; i++) {
                 if(GRD.Players[i].mySocket == playerSocket) {
                     console.log(GRD.Players[i].myName + " has left my lobby!");
+                    removePlayer(i);
+                    GRD.LostPlayers.set(GRD.Players[i].myName, GRD.Players[i]);
+                    GRD.Players[i] = 'EMPTY';
                 }
             }
         },
@@ -190,16 +218,24 @@ var App = {
     },
     Player : {
         sendName : function() {
-            let joinName = 'anon';
-            myName = joinName;
-            let data = {name: joinName, socketId: App.mySocketId, gameId: GameRoomData.gameId}
+            //Make sure I have provided a valid name
+            if(myName == 'anon' || myName == undefined || myName == '') {console.log("PLEASE PROVIDE A NAME"); return;}
+            if(App.mySocketId == undefined || App.mySocketId == '') {console.log("YOU HAVE NO SOCKET ID"); return;}
+
+            //Send my name to the host to see if I can enter
+            let data = {name: myName, socketId: App.mySocketId, gameId: GRD.gameId}
             IO.socket.emit('playerJoinREQ', data);
         },
         gameUpdateACK : function(data) {
+            //If Player and done with name, go to main scene
+            if(validName == false && App.mySocketId.toString() != data.hostSocketId.toString()) {
+                console.log("NAME ACCEPTED!");
+                validName = true;
+                joinComplete();
+            }
             //Wait for Scene to load if it hasn't yet
             function checkLoading() {
                 if(loaded) {
-                    
                     if(findFirstOpen(GRD.Players) == null || findFirstOpen(GRD.Players) != findFirstOpen(data.Players)) {
                         //If different ammount of players, reset players
                         resetPlayers(data.Players);
@@ -225,6 +261,8 @@ var App = {
         },
         hostLeft : function() {
             console.log("The host has left the lobby!");
+            let new_location = location.origin;
+            location.href = new_location;
         }
     }
 }
@@ -261,8 +299,17 @@ function resetPlayers(newPlayers) {
 
 //Add player
 function addPlayer(Player) {
-    let data = {name: Player.myName, position: Player.myPosition}
+    let data = {name: Player.myName, 
+                myPosition: Player.myPosition, 
+                myLinVelocity: Player.myLinVelocity,
+                myAngVelocity: Player.myAngVelocity
+    }
     GameUpdater.prototype.addPlayerBall(data);
+}
+
+//Remove Player as host
+function removePlayer(index) {
+    GameUpdater.prototype.removePlayerBall(index);
 }
 
 
@@ -288,6 +335,16 @@ function getPlayer(name) {
             return i;
         }
     }
+}
+
+//Returns true if game already has a player
+function hasPlayer(name) {
+    for(let i = 0; i < GRD.Players.length; i++) {
+        if(GRD.Players[i].myName == name) {
+            return true;
+        }
+    }
+    return false;
 }
 
 //Reset Players Array

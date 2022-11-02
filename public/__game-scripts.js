@@ -989,6 +989,7 @@ GameUpdater.prototype.update = function(dt) {
     //Run this script with network.js
     if(sockets.id == GRD.hostSocketId) {
         for(let name in this.playerArray) {
+            if(this.playerArray[name] == undefined) {continue;}
             let i = getPlayer(name);
             //If player went out of bounds, reset location
             if(this.playerArray[name].getPosition().y < 0) {
@@ -1017,8 +1018,11 @@ GameUpdater.prototype.initializePlayers = function (data) {
     for (let i = 0; i < data.Players.length; i++) {
         if(data.Players[i] != 'EMPTY') {
             if(data.Players[i].myName != data.name) {
-                console.log(data.Players[i]);
-                this.playerArray[data.Players[i].myName] = this.createPlayerEnitity(data.Players[i].myPosition);
+                this.playerArray[data.Players[i].myName] = this.createPlayerEnitity(
+                    data.Players[i].myPosition,
+                    data.Players[i].myLinVelocity,
+                    data.Players[i].myAngVelocity
+                );
             }  else {
                 this.playerArray[data.name] = thisPlayer;
             }
@@ -1027,18 +1031,28 @@ GameUpdater.prototype.initializePlayers = function (data) {
     this.initialized = true;
 };
 
+//Remove Player
+GameUpdater.prototype.removePlayerBall = function (index) {
+    if(this.playerArray[GRD.Players[index].myName] == undefined) {console.log("BALL DOES NOT EXIST, CANNOT REMOVE"); return;}
+    this.playerArray[GRD.Players[index].myName].destroy();
+    this.playerArray[GRD.Players[index].myName] = undefined;
+}
+
 //Add Player
 GameUpdater.prototype.addPlayerBall = function (data) {
-    //data = {position: name: }
+    //data = {name, myPosition, myLinVelocity, myAngVelocity}
     if(this.playerArray[data.name] != undefined) {console.log("BALL ALREADY EXISTS"); return;}
-    this.playerArray[data.name] = this.createPlayerEnitity(GRD.origin);
+    this.playerArray[data.name] = this.createPlayerEnitity(data.myPosition, data.myLinVelocity, data.myAngVelocity);
 };
 
-GameUpdater.prototype.createPlayerEnitity = function(pos) {
+GameUpdater.prototype.createPlayerEnitity = function(pos, lin_vel, ang_vel) {
     var newPlayer = thisOther.clone();  //Create a copy of the "Other Ball"
     newPlayer.enabled = true;   //Enable it so it is visible in game
     thisOther.getParent().addChild(newPlayer);  //Add Copy to the scene structure
     newPlayer.rigidbody.teleport(pos.x, pos.y, pos.z);   // Move Ball to the starting location
+    newPlayer.rigidbody.angularVelocity = pc.Vec3.ZERO;
+    newPlayer.rigidbody.linearVelocity = pc.Vec3.ZERO;
+    newPlayer.rigidbody.applyImpulse(lin_vel);
     return newPlayer;
 };
 
@@ -1081,4 +1095,84 @@ GameUpdater.prototype.getPosition = function(name) {
 GameUpdater.prototype.applyInput = function(data) {
     if(this.playerArray[data.name].rigidbody) {this.playerArray[data.name].rigidbody.applyImpulse(data.force);}};
 //-------------------------------------------------------------------------------------------------
+
+// join-ui.js
+var JoinUi = pc.createScript('joinUi');
+
+JoinUi.attributes.add('css', {type: 'asset', assetType:'css', title: 'CSS Asset'});
+JoinUi.attributes.add('html', {type: 'asset', assetType:'html', title: 'HTML Asset'});
+
+// initialize code called once per entity
+JoinUi.prototype.initialize = function() {
+    // create STYLE element
+    var style = document.createElement('style');
+
+    // append to head
+    document.head.appendChild(style);
+    style.innerHTML = this.css.resource || '';
+
+    // Add the HTML
+    this.div = document.createElement('div');
+    this.div.classList.add('container');
+    this.div.innerHTML = this.html.resource || '';
+
+    // append to body
+    // can be appended somewhere else
+    // it is recommended to have some container element
+    // to prevent iOS problems of overfloating elements off the screen
+    document.body.appendChild(this.div);
+
+    //--------------------------------------------------------------------------
+    //NETWORKING
+    try {
+        console.log(GRD.hostSocketId);
+        if(App.mySocketId.toString() == GRD.hostSocketId) {
+            joinComplete();
+            return;
+        }
+    } catch (error) {
+        console.log(error);
+    }
+    //--------------------------------------------------------------------------
+    this.bindEvents();
+};
+
+JoinUi.prototype.bindEvents = function() {
+
+    let join_input = this.div.querySelector('.createPlayerName');
+    let join_button = this.div.querySelector('.button');
+
+    if(join_button) {
+        console.log("Found Button");
+        
+        join_button.addEventListener('click', function() {
+            console.log("Clicked Button");
+            console.log(join_input.value);
+            //-----------------------------------------------------------
+            //NETWORKING
+            try {
+                myName = join_input.value;
+                App.Player.sendName();
+            //-----------------------------------------------------------
+            } catch (error) {console.log(error);}
+        }, false);
+    }
+};
+
+function joinComplete() {
+    let div = document.body.querySelector('.container');
+    document.body.removeChild(div);
+    loadScene('Main Scene', { hierarchy: true, settings: true }, (err, loadedSceneRootEntity) => {
+        if (err) {
+            console.error(err);
+        } else {
+            // Scene hierachary has successfully been loaded
+            console.log("LOADED NEW SCENE");
+        }
+    });
+}
+
+
+
+
 

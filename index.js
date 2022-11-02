@@ -17,8 +17,16 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/', (req, res) => {
     res.sendFile(__dirname + '/nav/main.html');
 });
-app.get('/:id', (req, res) => {
-    switch(req.params.id) {
+
+app.get('/:query', (req, res) => {
+    let gameId = req.params.query;
+    let name;
+    const searchParams = new URLSearchParams(req._parsedUrl.search);
+    for (const [key, value] of searchParams.entries()) {if(key == 'name') name = value;}
+    console.log(gameId);
+    console.log(name);
+
+    switch(req.params.query) {
         case null:
             res.sendFile(__dirname + '/nav/main.html');
             break;
@@ -30,7 +38,7 @@ app.get('/:id', (req, res) => {
             break;
         default:
             try {
-                if(gg.getGame(parseInt(req.params.id)) == 'NULL' || gg.getGame(parseInt(req.params.id)) == null) {
+                if(gg.getGame(parseInt(req.params.query)) == 'NULL' || gg.getGame(parseInt(req.params.query)) == null) {
                     res.status(404).send("Game Room Not Found");
                 } else {
                     res.sendFile(__dirname + '/public/game.html');
