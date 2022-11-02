@@ -1013,7 +1013,17 @@ GameUpdater.prototype.update = function(dt) {
 //Update World Player Data
 GameUpdater.prototype.initializePlayers = function (data) {
     // data = {Players: name:}
-    this.playerArray = [];    //Create Array of All OTHER players in game
+    //If a player change, remove all balls in world
+    if(this.playerArray) {
+        for(let name in this.playerArray) {
+            if(name != data.name) {
+                this.playerArray[name].destroy();
+                this.playerArray[name] = undefined;
+            }
+        }
+    } 
+    this.playerArray = [];
+    //Create Array of All OTHER players in game
     //For every other player in lobby create object
     for (let i = 0; i < data.Players.length; i++) {
         if(data.Players[i] != 'EMPTY') {
@@ -1024,7 +1034,7 @@ GameUpdater.prototype.initializePlayers = function (data) {
                     data.Players[i].myAngVelocity
                 );
             }  else {
-                this.playerArray[data.name] = thisPlayer;
+                if(this.playerArray[data.name] == undefined) {this.playerArray[data.name] = thisPlayer;}
             }
         }
     }
