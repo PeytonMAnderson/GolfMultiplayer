@@ -989,6 +989,7 @@ GameUpdater.prototype.update = function(dt) {
     //Run this script with network.js
     if(sockets.id == GRD.hostSocketId) {
         for(let name in this.playerArray) {
+            if(this.playerArray[name] == undefined) {continue;}
             let i = getPlayer(name);
             //If player went out of bounds, reset location
             if(this.playerArray[name].getPosition().y < 0) {
@@ -1017,7 +1018,11 @@ GameUpdater.prototype.initializePlayers = function (data) {
     for (let i = 0; i < data.Players.length; i++) {
         if(data.Players[i] != 'EMPTY') {
             if(data.Players[i].myName != data.name) {
-                this.playerArray[data.Players[i].myName] = this.createPlayerEnitity(data.Players[i].myPosition);
+                this.playerArray[data.Players[i].myName] = this.createPlayerEnitity(
+                    data.Players[i].myPosition,
+                    data.Players[i].myLinVelocity,
+                    data.Players[i].myAngVelocity
+                );
             }  else {
                 this.playerArray[data.name] = thisPlayer;
             }
@@ -1026,18 +1031,28 @@ GameUpdater.prototype.initializePlayers = function (data) {
     this.initialized = true;
 };
 
+//Remove Player
+GameUpdater.prototype.removePlayerBall = function (index) {
+    if(this.playerArray[GRD.Players[index].myName] == undefined) {console.log("BALL DOES NOT EXIST, CANNOT REMOVE"); return;}
+    this.playerArray[GRD.Players[index].myName].destroy();
+    this.playerArray[GRD.Players[index].myName] = undefined;
+}
+
 //Add Player
 GameUpdater.prototype.addPlayerBall = function (data) {
-    //data = {position: name: }
+    //data = {name, myPosition, myLinVelocity, myAngVelocity}
     if(this.playerArray[data.name] != undefined) {console.log("BALL ALREADY EXISTS"); return;}
-    this.playerArray[data.name] = this.createPlayerEnitity(GRD.origin);
+    this.playerArray[data.name] = this.createPlayerEnitity(data.myPosition, data.myLinVelocity, data.myAngVelocity);
 };
 
-GameUpdater.prototype.createPlayerEnitity = function(pos) {
+GameUpdater.prototype.createPlayerEnitity = function(pos, lin_vel, ang_vel) {
     var newPlayer = thisOther.clone();  //Create a copy of the "Other Ball"
     newPlayer.enabled = true;   //Enable it so it is visible in game
     thisOther.getParent().addChild(newPlayer);  //Add Copy to the scene structure
     newPlayer.rigidbody.teleport(pos.x, pos.y, pos.z);   // Move Ball to the starting location
+    newPlayer.rigidbody.angularVelocity = pc.Vec3.ZERO;
+    newPlayer.rigidbody.linearVelocity = pc.Vec3.ZERO;
+    newPlayer.rigidbody.applyImpulse(lin_vel);
     return newPlayer;
 };
 
