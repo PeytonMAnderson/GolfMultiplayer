@@ -1,5 +1,6 @@
 // follow.js
 var Follow = pc.createScript('follow');
+var current_ball_pos;
 
 Follow.attributes.add('target', {
     type: 'entity',
@@ -17,6 +18,7 @@ Follow.attributes.add('distance', {
 // initialize code called once per entity
 Follow.prototype.initialize = function() {
     this.vec = new pc.Vec3();
+    current_ball_pos = this.vec;
 };
 
 // update code called every frame
@@ -36,12 +38,21 @@ Follow.prototype.update = function(dt) {
 
     // set the position for this entity
     //currentCamPos = this.vec;
-    this.entity.setPosition(this.vec); 
+    current_ball_pos = this.vec;
+    //this.entity.setPosition(this.vec); 
 };
 
 
 // movement.js
 var Movement = pc.createScript('movement');
+
+function deg_to_rad(degrees) {
+    return degrees * (Math.PI/180);
+}
+
+function rad_to_deg(radians) {
+    return radians * (180/Math.PI);
+}
 
 Movement.attributes.add('speed', {
     type: 'number',    
@@ -60,8 +71,21 @@ Movement.prototype.initialize = function() {
 // update code called every frame
 Movement.prototype.update = function(dt) {
     var forceX = 0;
+    var forceY = 0;
     var forceZ = 0;
+    this.force.x = 0;
+    this.force.y = 0;
+    this.force.z = 0;
 
+
+    //Get Camera direction in radians
+    let theta_0 = 0;
+    if(camera_direction) {
+        let transformed_forward = new pc.Vec3();
+        camera_direction.transformVector(pc.Vec3.FORWARD, transformed_forward);
+        theta_0 = Math.atan2(-transformed_forward.x, -transformed_forward.z);
+    }
+    
     // calculate force based on pressed keys
     if (this.app.keyboard.isPressed(pc.KEY_A)) {
         forceX = -this.speed;
@@ -79,24 +103,24 @@ Movement.prototype.update = function(dt) {
         forceZ += this.speed;
     }
 
-    this.force.x = forceX;
-    this.force.z = forceZ;
+
+    //Calcuate Foward and Backward tranformed to global space
+    this.force.x = this.force.x + forceZ * Math.sin(theta_0);
+    this.force.z = this.force.z + forceZ * Math.cos(theta_0);
+    //Calcuate Left and Right transformed to global space
+    this.force.x = this.force.x + forceX * Math.sin(Math.PI/2 + theta_0);
+    this.force.z = this.force.z + forceX * Math.cos(Math.PI/2 + theta_0);
 
     // if we have some non-zero force
     if (this.force.length()) {
-
-        // calculate force vector
-        var rX = Math.cos(-Math.PI * 0.25);
-        var rY = Math.sin(-Math.PI * 0.25);
-        this.force.set(this.force.x * rX - this.force.z * rY,  0, this.force.z * rX + this.force.x * rY);
-
+        
+        this.force.set(this.force.x,  0, this.force.z);
         // clamp force to the speed
         if (this.force.length() > this.speed) {
             this.force.normalize().scale(this.speed);
         }
     }
-
-
+    
     //-------------------------------------------------------------------------------------------------
     //NETWORKING
     try {
@@ -108,7 +132,7 @@ Movement.prototype.update = function(dt) {
             sendPlayerInput(this.force);
         }
     } catch (error) {
-        console.log(error);
+        //console.log(error);
         this.entity.rigidbody.applyImpulse(this.force);
     }
     //-------------------------------------------------------------------------------------------------
@@ -192,9 +216,6 @@ Teleport.prototype.onTriggerEnter = function (otherEntity) {
     if (! otherEntity.script.teleportable)
         return;
 
-    // teleport entity to the target entity
-    otherEntity.script.teleportable.teleport(this.entity, this.target);
-    
     //-----------------------------------------------------------------------------------------------
     //NETWORK
     try {
@@ -204,11 +225,13 @@ Teleport.prototype.onTriggerEnter = function (otherEntity) {
         }
         
     } catch (error) {
-        console.log(error);
+        //console.log(error);
     }
     //------------------------------------------------------------------------------------------------
 
-    //Load Next Scene
+    // teleport entity to the target entity
+    otherEntity.script.teleportable.teleport(this.entity, this.target);
+
     loadScene('Scene 2', { hierarchy: true, settings: true }, (err, loadedSceneRootEntity) => {
         if (err) {
             console.error(err);
@@ -222,6 +245,7 @@ Teleport.prototype.onTriggerEnter = function (otherEntity) {
 
 // orbitCamera.js
 var OrbitCamera = pc.createScript('orbitCamera');
+var camera_direction;
 
 OrbitCamera.attributes.add('autoRender', {
     type: 'boolean', 
@@ -344,15 +368,15 @@ OrbitCamera.distanceBetween = new pc.Vec3();
 // Set the camera position to a world position and look at a world position
 // Useful if you have multiple viewing angles to swap between in a scene
 OrbitCamera.prototype.resetAndLookAtPoint = function (resetPoint, lookAtPoint) {
-    this.pivotPoint.copy(lookAtPoint);
     this.entity.setPosition(resetPoint);
 
-    this.entity.lookAt(lookAtPoint);
+    
 
     var distance = OrbitCamera.distanceBetween;
     distance.sub2(lookAtPoint, resetPoint);
     this.distance = distance.length();
 
+    this.entity.lookAt(lookAtPoint);
     this.pivotPoint.copy(lookAtPoint);
 
     var cameraQuat = this.entity.getRotation();
@@ -401,8 +425,13 @@ OrbitCamera.prototype.initialize = function () {
 
     this.entity.lookAt(this._modelsAabb.center);
 
+    //Set Pivot Position
     this._pivotPoint = new pc.Vec3();
-    this._pivotPoint.copy(this._modelsAabb.center);
+    if(current_ball_pos) {
+        this._pivotPoint.copy(current_ball_pos);
+    } else {
+        this._pivotPoint.copy(this._modelsAabb.center);
+    }
 
     // Calculate the camera euler angle rotation around x and y axes
     // This allows us to place the camera at a particular rotation to begin with in the scene
@@ -417,6 +446,9 @@ OrbitCamera.prototype.initialize = function () {
 
     this._targetYaw = this._yaw;
     this._targetPitch = this._pitch;
+
+    //Get Global Copy of Camera Direction for camera based movements
+    camera_direction = this.entity.getRotation();
 
     // If we have ticked focus on start, then attempt to position the camera where it frames
     // the focused entity and move the pivot point to entity's position otherwise, set the distance
@@ -513,6 +545,17 @@ OrbitCamera.prototype.update = function(dt) {
     this._yaw = pc.math.lerp(this._yaw, this._targetYaw, t);
     this._pitch = pc.math.lerp(this._pitch, this._targetPitch, t);
 
+    //Get Global Copy of Camera Direction for camera based movements
+    camera_direction = this.entity.getRotation();
+
+    //Update Pivot Point
+    if(current_ball_pos) {
+        this._pivotPoint.copy(current_ball_pos);
+    } else {
+        this._pivotPoint.copy(this._modelsAabb.center);
+    }
+
+    //Update Camera Position
     this._updatePosition();
 };
 
@@ -977,20 +1020,23 @@ function loadScene(sceneName, options, callback, scope) {
 }
 
 // gameUpdater.js
+// gameUpdater.js
 //-------------------------------------------------------------------------------------------------
 //NETWORKING
 var GameUpdater = pc.createScript('gameUpdater');   //GameUpdater Object
 var thisPlayer; //Contains data of this player's ball in the world
 var thisOther;  //Contains data of other players' balls in the world
+var thisText; //Nameplate for each ball
 //Incremented each update cycle
 var tick = 0;
 //How many update frames before a game update is sent to players
-var tick_ratio = 2;
+var tick_ratio = 1;
 
 // initialize code called once per entity
 GameUpdater.prototype.initialize = function() {
     thisPlayer = this.app.root.findByName('ball');
     thisOther = this.app.root.findByName('other_ball');
+    thisText = this.app.root.findByName('MyBallText');
     console.log("Loading Complete!");
     loaded = true;
 };
@@ -1001,7 +1047,7 @@ GameUpdater.prototype.update = function(dt) {
     try {
         if(GRD);
     } catch (error) {
-        console.log(error);
+        //console.log(error);
         return;
     }
 
@@ -1054,7 +1100,8 @@ GameUpdater.prototype.initializePlayers = function (data) {
                 this.playerArray[data.Players[i].myName] = this.createPlayerEnitity(
                     data.Players[i].myPosition,
                     data.Players[i].myLinVelocity,
-                    data.Players[i].myAngVelocity
+                    data.Players[i].myAngVelocity,
+                    data.Players[i].myName
                 );
             }  else {
                 if(this.playerArray[data.name] == undefined) {this.playerArray[data.name] = thisPlayer;}
@@ -1075,13 +1122,20 @@ GameUpdater.prototype.removePlayerBall = function (index) {
 GameUpdater.prototype.addPlayerBall = function (data) {
     //data = {name, myPosition, myLinVelocity, myAngVelocity}
     if(this.playerArray[data.name] != undefined) {console.log("BALL ALREADY EXISTS"); return;}
-    this.playerArray[data.name] = this.createPlayerEnitity(data.myPosition, data.myLinVelocity, data.myAngVelocity);
+    this.playerArray[data.name] = this.createPlayerEnitity(data.myPosition, data.myLinVelocity, data.myAngVelocity, data.name);
 };
 
-GameUpdater.prototype.createPlayerEnitity = function(pos, lin_vel, ang_vel) {
+GameUpdater.prototype.createPlayerEnitity = function(pos, lin_vel, ang_vel, name) {
     var newPlayer = thisOther.clone();  //Create a copy of the "Other Ball"
     newPlayer.enabled = true;   //Enable it so it is visible in game
     thisOther.getParent().addChild(newPlayer);  //Add Copy to the scene structure
+
+    var newText = thisText.clone();
+    newText.element.text = name;
+    console.log(newText);
+    //newText.changeFocus(newPlayer);
+    //newText.getParent().addChild(newText);  //Add Copy to the scene structure
+
     newPlayer.rigidbody.teleport(pos.x, pos.y, pos.z);   // Move Ball to the starting location
     newPlayer.rigidbody.angularVelocity = ang_vel;
     newPlayer.rigidbody.linearVelocity = lin_vel;
@@ -1093,6 +1147,8 @@ GameUpdater.prototype.updatePosition = function (data) {
     if(!data.position) return;
     if(data.name == myName) {
         //Update MY POSITION
+        //let error_dis = this.calculateError(thisPlayer, data.position);
+        //console.log(error_dis);
         thisPlayer.rigidbody.teleport(data.position.x, data.position.y, data.position.z);
         thisPlayer.rigidbody.angularVelocity = data.av;
         thisPlayer.rigidbody.linearVelocity = data.lv;
@@ -1105,9 +1161,20 @@ GameUpdater.prototype.updatePosition = function (data) {
                 this.playerArray[data.name].rigidbody.linearVelocity = data.lv;
             }
         } catch (error) {
-            console.log(error);
+            //console.log(error);
         }
     }
+};
+
+GameUpdater.prototype.calculateError = function(Ball, expected_position) {
+    let pos = Ball.getPosition();
+    let vel = Ball.rigidbody.linearVelocity;
+    let x, y, z;
+    if(vel.x > 0) {x = pos.x - expected_position.x;} else {x = expected_position.x - pos.x;}
+    if(vel.y > 0) {y = pos.y - expected_position.y;} else {y = expected_position.y - pos.y;}
+    if(vel.z > 0) {z = pos.z - expected_position.z;} else {z = expected_position.z - pos.z;}
+
+    return (x + y + z)/3 
 };
 
 GameUpdater.prototype.getPosition = function(name) {
@@ -1122,8 +1189,17 @@ GameUpdater.prototype.getPosition = function(name) {
 
 GameUpdater.prototype.applyInput = function(data) {
     if(this.playerArray[data.name].rigidbody) {this.playerArray[data.name].rigidbody.applyImpulse(data.force);}};
+
+function mul_by_c(vector, c) {
+    vector.x = vector.x * c;
+    vector.y = vector.y * c;
+    vector.z = vector.z * c;
+    return vector;
+}
+
 //-------------------------------------------------------------------------------------------------
 
+// join-ui.js
 // join-ui.js
 var JoinUi = pc.createScript('joinUi');
 
@@ -1155,6 +1231,7 @@ JoinUi.prototype.initialize = function() {
     try {
         console.log(GRD.hostSocketId);
         if(App.mySocketId.toString() == GRD.hostSocketId) {
+            validName = true;
             joinComplete();
             return;
         }
@@ -1203,4 +1280,93 @@ function joinComplete() {
 
 
 
+
+// TextPosition.js
+var TextPosition = pc.createScript('textPosition');
+
+//Attribute for how high the text sits above the ball
+TextPosition.attributes.add('hoverHeight', {type: 'number', default: 0.5, title: 'HoverHeight'});
+
+//Attribute for what ball the text sits above
+TextPosition.attributes.add('focusEntity', {
+    type: 'entity',
+    title: 'Focus Entity',
+    description: 'Entity for the text to hover on. If empty then text hovers over origin.'
+});
+
+TextPosition.prototype.initialize = function() {
+    //---------------------------------------------------------------------------
+    //NETWORK
+    try {
+        if(myName && validName == true) {
+            if(myName != this.entity.element.text) {
+                this.changeName(myName);
+            }
+        }
+    } catch (error) {
+        //console.log(error);
+    }
+    //---------------------------------------------------------------------------
+    if(this.focusEntity) {
+        let new_position = this.focusEntity.getPosition();
+        new_position.y = new_position.y + this.hoverHeight;
+        this.entity.setPosition(new_position);
+    } else {
+        this.entity.setPosition(0, 0, 0);
+    }
+};
+
+// update code called every frame
+TextPosition.prototype.update = function(dt) {
+
+    //---------------------------------------------------------------------------
+    //NETWORK
+    try {
+        if(myName && validName == true) {this.changeName(myName);}
+    } catch (error) {
+        //console.log(error);
+    }
+    //---------------------------------------------------------------------------
+
+    if(this.focusEntity) {
+        let new_position = this.focusEntity.getPosition();
+        new_position.y = new_position.y + this.hoverHeight;
+        this.entity.setPosition(new_position);
+    } else {
+        this.entity.setPosition(0, 0, 0);
+    }
+
+    //theta of text and theta of camera
+    let theta_0 = 0;
+    let theta_1 = 0;
+
+    //Get Current Rotation of Text
+    let q = this.entity.getRotation();
+    let t_forward = new pc.Vec3();
+    q.transformVector(pc.Vec3.FORWARD, t_forward);
+    theta_0 = Math.atan2(-t_forward.x, -t_forward.z);
+
+    if(camera_direction) {
+        //Get Current Rotation of Camera
+        let transformed_forward = new pc.Vec3();
+        camera_direction.transformVector(pc.Vec3.FORWARD, transformed_forward);
+        theta_1 = Math.atan2(-transformed_forward.x, -transformed_forward.z);
+
+        //If Rotation of camera and rotation of text do not match, update text rotation
+        if(theta_0 != theta_1) {
+            let theta_d = theta_1 - theta_0;
+            this.entity.rotate(0,theta_d,0);
+        }
+    }
+};
+
+TextPosition.prototype.changeName = function(new_name) {this.entity.element.text = new_name;};
+TextPosition.prototype.changeFocus = function(new_entity) {this.focusEntity = new_entity;};
+
+// swap method called for script hot-reloading
+// inherit your script state here
+// TextPosition.prototype.swap = function(old) { };
+
+// to learn more about script anatomy, please read:
+// https://developer.playcanvas.com/en/user-manual/scripting/
 
