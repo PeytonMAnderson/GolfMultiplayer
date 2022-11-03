@@ -1086,6 +1086,7 @@ GameUpdater.prototype.initializePlayers = function (data) {
     if(this.playerArray) {
         for(let name in this.playerArray) {
             if(name != data.name) {
+                if(this.playerArray[name].namePlate) this.playerArray[name].namePlate.destroy();
                 this.playerArray[name].destroy();
                 this.playerArray[name] = undefined;
             }
@@ -1114,6 +1115,7 @@ GameUpdater.prototype.initializePlayers = function (data) {
 //Remove Player
 GameUpdater.prototype.removePlayerBall = function (index) {
     if(this.playerArray[GRD.Players[index].myName] == undefined) {console.log("BALL DOES NOT EXIST, CANNOT REMOVE"); return;}
+    if(this.playerArray[GRD.Players[index].myName].namePlate) this.playerArray[GRD.Players[index].myName].namePlate.destroy();
     this.playerArray[GRD.Players[index].myName].destroy();
     this.playerArray[GRD.Players[index].myName] = undefined;
 }
@@ -1131,11 +1133,12 @@ GameUpdater.prototype.createPlayerEnitity = function(pos, lin_vel, ang_vel, name
     thisOther.getParent().addChild(newPlayer);  //Add Copy to the scene structure
 
     var newText = thisText.clone();
-    newText.element.text = name;
+    newText.focusEntity = newPlayer;
+    newText.focusName = name;
     console.log(newText);
-    //newText.changeFocus(newPlayer);
-    //newText.getParent().addChild(newText);  //Add Copy to the scene structure
+    thisOther.getParent().addChild(newText);  //Add Copy to the scene structure
 
+    newPlayer.namePlate = newText;
     newPlayer.rigidbody.teleport(pos.x, pos.y, pos.z);   // Move Ball to the starting location
     newPlayer.rigidbody.angularVelocity = ang_vel;
     newPlayer.rigidbody.linearVelocity = lin_vel;
@@ -1174,7 +1177,7 @@ GameUpdater.prototype.calculateError = function(Ball, expected_position) {
     if(vel.y > 0) {y = pos.y - expected_position.y;} else {y = expected_position.y - pos.y;}
     if(vel.z > 0) {z = pos.z - expected_position.z;} else {z = expected_position.z - pos.z;}
 
-    return (x + y + z)/3 
+    return (x + y + z)/3; 
 };
 
 GameUpdater.prototype.getPosition = function(name) {
@@ -1299,16 +1302,16 @@ TextPosition.prototype.initialize = function() {
     //NETWORK
     try {
         if(myName && validName == true) {
-            if(myName != this.entity.element.text) {
-                this.changeName(myName);
-            }
+            if(!this.entity.focusName) this.entity.focusName = myName;
+            this.changeName("PLACE HOLDER");
         }
     } catch (error) {
         //console.log(error);
     }
     //---------------------------------------------------------------------------
     if(this.focusEntity) {
-        let new_position = this.focusEntity.getPosition();
+        if(!this.entity.focusEntity) this.entity.focusEntity = this.focusEntity;
+        let new_position = this.entity.focusEntity.getPosition();
         new_position.y = new_position.y + this.hoverHeight;
         this.entity.setPosition(new_position);
     } else {
@@ -1322,46 +1325,40 @@ TextPosition.prototype.update = function(dt) {
     //---------------------------------------------------------------------------
     //NETWORK
     try {
-        if(myName && validName == true) {this.changeName(myName);}
+        if(myName && validName == true) {
+            if(!this.entity.focusName) {this.entity.focusName = myName;}
+            if(this.entity.focusName != this.entity.element.text) {
+
+                //Changes the clients own name to nothing to not clog screen-space
+                if(this.entity.focusName != myName) {
+                    this.changeName(this.entity.focusName);
+                } else {
+                    if(this.entity.element.text != ' ') this.changeName(' ');
+                }
+            }
+        }
     } catch (error) {
         //console.log(error);
     }
     //---------------------------------------------------------------------------
 
-    if(this.focusEntity) {
-        let new_position = this.focusEntity.getPosition();
+
+    //Change Focus Entity
+    if(this.entity.focusEntity) {
+        let new_position = this.entity.focusEntity.getPosition();
         new_position.y = new_position.y + this.hoverHeight;
         this.entity.setPosition(new_position);
     } else {
-        this.entity.setPosition(0, 0, 0);
+        //If the entity no longer exists, destroy this enitity
+        this.entity.destroy();
     }
 
-    //theta of text and theta of camera
-    let theta_0 = 0;
-    let theta_1 = 0;
-
-    //Get Current Rotation of Text
-    let q = this.entity.getRotation();
-    let t_forward = new pc.Vec3();
-    q.transformVector(pc.Vec3.FORWARD, t_forward);
-    theta_0 = Math.atan2(-t_forward.x, -t_forward.z);
-
-    if(camera_direction) {
-        //Get Current Rotation of Camera
-        let transformed_forward = new pc.Vec3();
-        camera_direction.transformVector(pc.Vec3.FORWARD, transformed_forward);
-        theta_1 = Math.atan2(-transformed_forward.x, -transformed_forward.z);
-
-        //If Rotation of camera and rotation of text do not match, update text rotation
-        if(theta_0 != theta_1) {
-            let theta_d = theta_1 - theta_0;
-            this.entity.rotate(0,theta_d,0);
-        }
-    }
+    //Set rotation of Text to Camera angle
+    if(camera_direction) this.entity.setRotation(camera_direction);
 };
 
 TextPosition.prototype.changeName = function(new_name) {this.entity.element.text = new_name;};
-TextPosition.prototype.changeFocus = function(new_entity) {this.focusEntity = new_entity;};
+TextPosition.prototype.changeFocus = function(new_entity) {this.entity.focusEntity = new_entity;};
 
 // swap method called for script hot-reloading
 // inherit your script state here
