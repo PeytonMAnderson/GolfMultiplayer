@@ -1235,6 +1235,7 @@ JoinUi.prototype.initialize = function() {
     try {
         console.log(GRD.hostSocketId);
         if(App.mySocketId.toString() == GRD.hostSocketId) {
+            validName = true;
             joinComplete();
             return;
         }
