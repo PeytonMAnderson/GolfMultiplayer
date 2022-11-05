@@ -1,0 +1,66 @@
+.container {
+    position: absolute;
+    width: 100%;
+
+    display: grid;
+    grid-template-columns: auto auto auto;
+    
+    background-color: #222;
+    color: #fff;
+    font-weight: 100;
+    
+    box-shadow: 0 0 5px rgba(0, 0, 0, .3);
+}
+
+.container > .share {
+    width: fit-content;
+    text-align: center;
+    display: inline-block;
+    margin-left: 0;
+    margin-right: auto;
+    background-color: #07f;
+    padding: 0 16px;
+    font-size: 18px;
+    line-height: 32px;
+    border-radius: 4px;
+    cursor: pointer;
+    
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.container > .settings {
+    width: fit-content;
+    text-align: center;
+    display: inline-block;
+    margin-left: auto;
+    margin-right: 0;
+    background-color: #07f;
+    padding: 0 16px;
+    font-size: 18px;
+    line-height: 32px;
+    border-radius: 4px;
+    cursor: pointer;
+    
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.container > .counterBox {
+    float: right;
+}
+.container > .gameInfo {
+
+    text-align: center;
+    color: #ff0;
+    font-size: 24px;
+    margin-top: auto;
+}

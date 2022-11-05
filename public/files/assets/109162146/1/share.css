@@ -1,0 +1,32 @@
+.container2 {
+    position: absolute;
+    clear: both;
+    bottom: 0;
+    height: auto;
+    width: 100%;
+    background-color: #222;
+    color: #fff;
+    font-weight: 100;
+    box-shadow: 0 0 5px rgba(0, 0, 0, .3);
+}
+
+.container2 > .link {
+    width: fit-content;
+    text-align: center;
+    display: inline-block;
+    margin-left: 0;
+    margin-right: auto;
+    background-color: #07f;
+    padding: 0 16px;
+    font-size: 18px;
+    line-height: 32px;
+    border-radius: 4px;
+    cursor: pointer;
+    
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}

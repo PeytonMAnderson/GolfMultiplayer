@@ -58,7 +58,7 @@ Movement.attributes.add('speed', {
     type: 'number',    
     default: 0.1,
     min: 0.05,
-    max: 0.5,
+    max: 100,
     precision: 2,
     description: 'Controls the movement speed'
 });
@@ -86,21 +86,30 @@ Movement.prototype.update = function(dt) {
         theta_0 = Math.atan2(-transformed_forward.x, -transformed_forward.z);
     }
     
-    // calculate force based on pressed keys
-    if (this.app.keyboard.isPressed(pc.KEY_A)) {
-        forceX = -this.speed;
-    } 
+    //Only allow new imput if the current velocity is 0
+    let vel_mag = Math.abs(this.entity.rigidbody.linearVelocity.x) + Math.abs(this.entity.rigidbody.linearVelocity.y) + Math.abs(this.entity.rigidbody.linearVelocity.z);
+    if(vel_mag < 0.05) {
+        this.wait_counter++;
+        if(this.wait_counter > 16) {
+            // calculate force based on pressed keys
+            if (this.app.keyboard.isPressed(pc.KEY_A)) {
+                forceX = -this.speed;
+            } 
 
-    if (this.app.keyboard.isPressed(pc.KEY_D)) {
-        forceX += this.speed;
-    }
+            if (this.app.keyboard.isPressed(pc.KEY_D)) {
+                forceX += this.speed;
+            }
 
-    if (this.app.keyboard.isPressed(pc.KEY_W)) {
-        forceZ = -this.speed;
-    } 
+            if (this.app.keyboard.isPressed(pc.KEY_W)) {
+                forceZ = -this.speed;
+            } 
 
-    if (this.app.keyboard.isPressed(pc.KEY_S)) {
-        forceZ += this.speed;
+            if (this.app.keyboard.isPressed(pc.KEY_S)) {
+                forceZ += this.speed;
+            }
+        }
+    } else {
+        this.wait_counter = 0;
     }
 
 
@@ -124,13 +133,8 @@ Movement.prototype.update = function(dt) {
     //-------------------------------------------------------------------------------------------------
     //NETWORKING
     try {
-        if(GRD.hostSocketId == sockets.id) {
-            // apply impulse to move the entity
-            this.entity.rigidbody.applyImpulse(this.force);
-        } else {
-            //Send to host for processing
-            sendPlayerInput(this.force);
-        }
+        if(GRD.hostSocketId != sockets.id)  sendPlayerInput(this.force);
+        this.entity.rigidbody.applyImpulse(this.force);
     } catch (error) {
         //console.log(error);
         this.entity.rigidbody.applyImpulse(this.force);
@@ -1020,7 +1024,6 @@ function loadScene(sceneName, options, callback, scope) {
 }
 
 // gameUpdater.js
-// gameUpdater.js
 //-------------------------------------------------------------------------------------------------
 //NETWORKING
 var GameUpdater = pc.createScript('gameUpdater');   //GameUpdater Object
@@ -1177,7 +1180,7 @@ GameUpdater.prototype.calculateError = function(Ball, expected_position) {
     if(vel.y > 0) {y = pos.y - expected_position.y;} else {y = expected_position.y - pos.y;}
     if(vel.z > 0) {z = pos.z - expected_position.z;} else {z = expected_position.z - pos.z;}
 
-    return (x + y + z)/3; 
+    return (x + y + z)/3;
 };
 
 GameUpdater.prototype.getPosition = function(name) {
@@ -1199,8 +1202,6 @@ function mul_by_c(vector, c) {
     vector.z = vector.z * c;
     return vector;
 }
-
-//-------------------------------------------------------------------------------------------------
 
 // join-ui.js
 // join-ui.js
@@ -1360,10 +1361,155 @@ TextPosition.prototype.update = function(dt) {
 TextPosition.prototype.changeName = function(new_name) {this.entity.element.text = new_name;};
 TextPosition.prototype.changeFocus = function(new_entity) {this.entity.focusEntity = new_entity;};
 
-// swap method called for script hot-reloading
-// inherit your script state here
-// TextPosition.prototype.swap = function(old) { };
+// GameUi.js
+var GameUi = pc.createScript('gameUi');
 
-// to learn more about script anatomy, please read:
-// https://developer.playcanvas.com/en/user-manual/scripting/
+GameUi.attributes.add('css', {type: 'asset', assetType:'css', title: 'Main CSS Asset'});
+GameUi.attributes.add('html', {type: 'asset', assetType:'html', title: 'Main HTML Asset'});
+
+GameUi.attributes.add('share_css', {type: 'asset', assetType:'css', title: 'Share CSS Asset'});
+GameUi.attributes.add('share_html', {type: 'asset', assetType:'html', title: 'Share HTML Asset'});
+
+GameUi.attributes.add('settings_css', {type: 'asset', assetType:'css', title: 'Settings CSS Asset'});
+GameUi.attributes.add('settings_html', {type: 'asset', assetType:'html', title: 'Settings HTML Asset'});
+
+// initialize code called once per entity
+GameUi.prototype.initialize = function() {
+    // create STYLE element
+    var style = document.createElement('style');
+
+    // append to head
+    document.head.appendChild(style);
+    style.innerHTML = this.css.resource || '';
+
+    // Add the HTML
+    this.div = document.createElement('div');
+    this.div.classList.add('container');
+    this.div.innerHTML = this.html.resource || '';
+
+    // append to body
+    // can be appended somewhere else
+    // it is recommended to have some container element
+    // to prevent iOS problems of overfloating elements off the screen
+    document.body.appendChild(this.div);
+    this.bindEvents(this);
+};
+
+
+GameUi.prototype.append_html = function(html_element, css_element, bind_index) {
+    // create STYLE element
+    let style2 = document.createElement('style');
+    // append to head
+    document.head.appendChild(style2);
+
+    style2.innerHTML = css_element.resource || '';
+
+    // Add the HTML
+    this.div = document.createElement('div');
+    this.div.classList.add('container2');
+
+    this.div.innerHTML = html_element.resource || '';
+
+    document.body.appendChild(this.div);
+    this.eventBinder(bind_index);
+};
+
+GameUi.prototype.remove_html = function(html) {
+    document.body.removeChild(html);
+};
+
+GameUi.prototype.eventBinder = function(bind_index) {
+    switch(bind_index) {
+        case 0:
+            this.qr = document.getElementById('qrcode');
+            this.url_text = document.getElementById('urltext');
+            this.link = document.getElementById('copylink');
+        
+            const wd = window.innerWidth;
+            const ht = window.innerHeight;
+            let sz = (wd > ht) ? ht : wd;
+
+            this.url_text.textContent = location.href;
+            generateQR(location.href, sz/1.5);
+            this.link.addEventListener('click', function() {
+                console.log("Copying Link");
+                navigator.clipboard.writeText(location.href);
+                if(!document.getElementById('copied')) {
+                    document.getElementById('copylink').insertAdjacentHTML("afterend",
+                    '<div class="gameInfo" id="copied">Link Copied!</div>');
+                }
+            }, false);
+            break;
+        case 1:
+            break;
+    }
+};
+
+GameUi.prototype.bindEvents = function(ref) {
+
+    this.share_button = this.div.querySelector('.share');
+    this.gameInfo = this.div.querySelector('.gameInfo');
+    this.settings_button = this.div.querySelector('.settings');
+
+    if(this.share_button) {
+        this.share_button.addEventListener('click', function() {
+            let cont = document.body.querySelector('.container2');
+            let other_cont = document.body.querySelector('.generalSettings');
+            if(cont) {
+                if(other_cont) {
+                    ref.remove_html(cont);
+                    ref.append_html(ref.share_html, ref.share_css, 0);
+                } else {
+                    ref.remove_html(cont);
+                }
+            } else {
+                ref.append_html(ref.share_html, ref.share_css, 0);
+            }
+
+        }, false);
+    }
+
+    if( this.settings_button) {
+         this.settings_button.addEventListener('click', function() {
+            let cont = document.body.querySelector('.container2');
+            let other_cont = document.body.querySelector('.link');
+            if(cont) {
+                if(other_cont) {
+                    ref.remove_html(cont);
+                    ref.append_html(ref.settings_html, ref.settings_css, 1);
+                } else {
+                    ref.remove_html(cont);
+                }
+            } else {
+                ref.append_html(ref.settings_html, ref.settings_css, 1);
+            }
+        }, false);
+    }
+};
+
+GameUi.prototype.update = function() {
+    //--------------------------------------------------------------------
+    //NETWORK
+    try {
+        if(GRD.gameId) {
+            if(this.gameInfo.textContent != GRD.gameId)  this.gameInfo.textContent = GRD.gameId;
+        }
+            
+    } catch (error) {
+        //console.log(error);
+    }
+    //--------------------------------------------------------------------
+};
+
+function generateQR(url, size) {
+    try {
+        const qrcode = new QRCode('qrcode', {
+            text: url,
+            width: size,
+            height: size
+        });
+    } catch (error) {
+        console.log(error);
+    }
+}
 
