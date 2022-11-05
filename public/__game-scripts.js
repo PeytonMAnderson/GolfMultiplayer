@@ -1421,6 +1421,24 @@ GameUi.prototype.remove_html = function(html) {
 GameUi.prototype.eventBinder = function(bind_index) {
     switch(bind_index) {
         case 0:
+            this.qr = document.getElementById('qrcode');
+            this.url_text = document.getElementById('urltext');
+            this.link = document.getElementById('copylink');
+        
+            const wd = window.innerWidth;
+            const ht = window.innerHeight;
+            let sz = (wd > ht) ? ht : wd;
+
+            this.url_text.textContent = location.href;
+            generateQR(location.href, sz/1.5);
+            this.link.addEventListener('click', function() {
+                console.log("Copying Link");
+                navigator.clipboard.writeText(location.href);
+                if(!document.getElementById('copied')) {
+                    document.getElementById('copylink').insertAdjacentHTML("afterend",
+                    '<div class="gameInfo" id="copied">Link Copied!</div>');
+                }
+            }, false);
             break;
         case 1:
             break;
@@ -1482,4 +1500,16 @@ GameUi.prototype.update = function() {
     }
     //--------------------------------------------------------------------
 };
+
+function generateQR(url, size) {
+    try {
+        const qrcode = new QRCode('qrcode', {
+            text: url,
+            width: size,
+            height: size
+        });
+    } catch (error) {
+        console.log(error);
+    }
+}
 

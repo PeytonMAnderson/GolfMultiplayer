@@ -11,25 +11,7 @@
     box-shadow: 0 0 16px rgba(0, 0, 0, .3);
 }
 
-.container > .share {
-    float: left;
-    display: inline-block;
-    background-color: #07f;
-    padding: 0 16px;
-    font-size: 18px;
-    line-height: 32px;
-    border-radius: 4px;
-    cursor: pointer;
-    
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    -khtml-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-}
-
-.container > .settings {
+.container > .button {
     float: left;
     display: inline-block;
     background-color: #07f;
@@ -56,8 +38,6 @@
     font-size: 24px;
 }
 
-.container > .gameInfo {
-    color: #ff0;
-    font-size: 24px;
+.container > .text {
     margin-top: 52px;
 }
