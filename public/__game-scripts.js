@@ -75,10 +75,14 @@ Movement.prototype.initialize = function() {
     current_friction = this.entity.rigidbody.friction;
     current_speed = this.speed;
     current_gravity = this.app.systems.rigidbody.gravity;
+    try {
+        GameUi.updateNetwork(this, "GRAVITY");
+        GameUi.updateNetwork(this, "FRICTION");
+        GameUi.updateNetwork(this, "SPEED");
+    } catch (error) {
+        console.log(error);
+    }
 
-    GameUi.updateNetwork(this, "GRAVITY");
-    GameUi.updateNetwork(this, "FRICTION");
-    GameUi.updateNetwork(this, "SPEED");
 };
 
 // update code called every frame
@@ -2088,6 +2092,9 @@ GameUi.prototype.update = function() {
             if(playerarray[0] != GRD.playerCount) {playerarray[0] = GRD.playerCount;  update = true;}
             if(playerarray[1] != GRD.playerLimit) {playerarray[1] = GRD.playerLimit; update = true;}
             if(update) players.textContent = playerarray[0] + "/" + playerarray[1];
+            //Update Player Name
+            let playerName = document.getElementById('playerName');
+            if(playerName.textContent != myName) playerName.textContent = myName;
         }
             
     } catch (error) {
@@ -2102,6 +2109,9 @@ GameUi.prototype.update = function() {
         if(playerarray[0] != "1") {playerarray[0] = 1;  update = true;}
         if(playerarray[1] != current_playerLimit) {playerarray[1] = current_playerLimit; update = true;}
         if(update) players.textContent = playerarray[0] + "/" + playerarray[1];
+        //Update PlayerName
+        let playerName = document.getElementById('playerName');
+        if(playerName.textContent != "Name") playerName.textContent = "Name";
     }
     //--------------------------------------------------------------------
 };
