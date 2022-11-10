@@ -13,6 +13,11 @@ var GRD = {
     playerLimit: 8,
     timeLeft: 'NULL',
     timeLimit: 120,
+    holeNumber: 1,
+    holeLimit: 4,
+    speed: 25,
+    gravity: -9.8,
+    friction: 0.9,
     Players: [],
     LostPlayers: lostplayers
 }
@@ -197,6 +202,7 @@ var App = {
 
                 //Finalize New Player joining
                 console.log("Adding " + data.name + " to lobby!");
+                GRD.playerCount++;
                 addPlayer(GRD.Players[index]);
                 sendGameUpdate();   //Send New data to Everyone in Lobby
             } catch (error) {console.log(error);}
@@ -205,9 +211,11 @@ var App = {
             for(let i = 0; i < GRD.Players.length; i++) {
                 if(GRD.Players[i].mySocket == playerSocket) {
                     console.log(GRD.Players[i].myName + " has left my lobby!");
-                    removePlayer(i);
+                    GRD.playerCount--;
+                    removePlayer(GRD.Players[i].myName);
                     GRD.LostPlayers.set(GRD.Players[i].myName, GRD.Players[i]);
                     GRD.Players[i] = 'EMPTY';
+                    return;
                 }
             }
         },
@@ -236,8 +244,11 @@ var App = {
             //Wait for Scene to load if it hasn't yet
             function checkLoading() {
                 if(loaded) {
-                    if(findFirstOpen(GRD.Players) == null || findFirstOpen(GRD.Players) != findFirstOpen(data.Players)) {
+                    if(playerArrayEqual(GRD.Players, data.Players) == false) {
                         //If different ammount of players, reset players
+                        console.log("reseting players");
+                        console.log(GRD.Players);
+                        console.log(data.Players);
                         resetPlayers(data.Players);
                     } else {
                         //Update each players position
@@ -251,7 +262,13 @@ var App = {
                         playerLimit: data.playerLimit,
                         timeLeft: data.timeLeft,
                         timeLimit: data.timeLimit,
-                        Players: data.Players
+                        Players: data.Players,
+                        LostPlayers: data.LostPlayers,
+                        holeNumber: data.holeNumber,
+                        holeLimit: data.holeLimit,
+                        speed: data.speed,
+                        gravity: data.gravity,
+                        friction: data.friction,
                     }
                 } else {
                     window.setTimeout(checkLoading, 50);
@@ -285,14 +302,19 @@ function sendGameUpdate() {
         playerLimit: GRD.playerLimit,
         timeLeft: GRD.timeLeft,
         timeLimit: GRD.timeLimit,
-        Players: GRD.Players
+        Players: GRD.Players,
+        LostPlayers: GRD.LostPlayers,
+        speed: GRD.speed,
+        friction: GRD.friction,
+        gravity: GRD.gravity,
+        holeNumber: GRD.holeNumber,
+        holeLimit: GRD.holeLimit
     }
     IO.socket.emit('gameUpdate', data);
 }
 
 //Reset Players if Player count mis-match
 function resetPlayers(newPlayers) {
-    console.log("reseting players");
     let data = {name: myName, Players: newPlayers}
     GameUpdater.prototype.initializePlayers(data);
 }
@@ -308,8 +330,8 @@ function addPlayer(Player) {
 }
 
 //Remove Player as host
-function removePlayer(index) {
-    GameUpdater.prototype.removePlayerBall(index);
+function removePlayer(name) {
+    GameUpdater.prototype.removePlayerBall(name);
 }
 
 
@@ -369,4 +391,40 @@ function findFirstOpen(Array) {
 function sendPlayerInput(data) {
     let packet = {gameId: GRD.gameId, data: data, name: myName}
     IO.socket.emit('sendPlayerInputREQ', packet);
+}
+
+//Reduce the size of the players array by moving any players
+function reducePlayerArray() {
+    let targetSize = GRD.playerLimit;
+    let currentSize = GRD.Players.length;
+    let minSize = GRD.playerCount;
+    if(targetSize < minSize) {console.log("ERROR: NEW PLAYER ARRAY SIZE TOO SMALL!"); return;}
+    if(currentSize == targetSize) {console.log("ERROR: SIZE ALREADY TARGET!"); return;}
+    //Migrate all that need to be migrated
+    for (let i = currentSize - 1; i > targetSize - 1; i--) {
+        if(GRD.Players[i] != "EMPTY") {
+            let openSpot = findFirstOpen(GRD.Players);
+            if(openSpot == null) continue;
+            GRD.Players[openSpot] = GRD.Players[i];
+        }
+    }
+    //Remove empty slots
+    GRD.Players.length = targetSize;
+    if(GRD.Players.length == targetSize) {return true;} else {console.log("ERROR: FAILED TO DECREASE"); return false;}
+}
+
+function increasePlayerArray() {
+    let targetSize = GRD.playerLimit;
+    let currentSize = GRD.Players.length;
+    if(currentSize == targetSize) {console.log("ERROR: SIZE ALREADY TARGET!"); return;}
+    for(let i = currentSize; i < targetSize; i++) {GRD.Players[i] = "EMPTY";}
+    if(GRD.Players.length == targetSize) {return true;} else {console.log("ERROR: FAILED TO INCREASE"); return false;}
+}
+
+function playerArrayEqual(A1, A2) {
+    if(A1.length != A2.length) return false;
+    for (let i = 0; i < A1.length; i++) {
+        if(A1[i].myName != A2[i].myName) return false;
+    }
+    return true;
 }
