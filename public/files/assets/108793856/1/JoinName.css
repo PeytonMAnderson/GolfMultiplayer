@@ -1,4 +1,4 @@
-.container {
+.joinContainer {
     position: absolute;
     top: 16px;
     left: 16px;
@@ -11,7 +11,7 @@
     box-shadow: 0 0 16px rgba(0, 0, 0, .3);
 }
 
-.container > .button {
+.joinContainer > .button {
     float: left;
     display: inline-block;
     background-color: #07f;
@@ -29,15 +29,15 @@
     user-select: none;
 }
 
-.container > .counterBox {
+.joinContainer > .counterBox {
     float: right;
 }
 
-.container .textField {
+.joinContainer .textField {
     color: #ff0;
     font-size: 24px;
 }
 
-.container > .text {
+.joinContainer > .text {
     margin-top: 52px;
 }

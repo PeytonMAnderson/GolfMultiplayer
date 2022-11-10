@@ -45,6 +45,11 @@ Follow.prototype.update = function(dt) {
 
 // movement.js
 var Movement = pc.createScript('movement');
+var current_friction;
+var current_speed;
+var current_gravity;
+var current_collision;
+var host_recieved = true;
 
 function deg_to_rad(degrees) {
     return degrees * (Math.PI/180);
@@ -66,13 +71,38 @@ Movement.attributes.add('speed', {
 // initialize code called once per entity
 Movement.prototype.initialize = function() {
     this.force = new pc.Vec3();
+
+    current_friction = this.entity.rigidbody.friction;
+    current_speed = this.speed;
+    current_gravity = this.app.systems.rigidbody.gravity;
+
+    GameUi.updateNetwork(this, "GRAVITY");
+    GameUi.updateNetwork(this, "FRICTION");
+    GameUi.updateNetwork(this, "SPEED");
 };
 
 // update code called every frame
 Movement.prototype.update = function(dt) {
-    var forceX = 0;
-    var forceY = 0;
-    var forceZ = 0;
+    //--------------------------------------------------------------------
+    //NETWORK
+    try {
+        if(current_speed != GRD.speed) {
+            current_speed = GRD.speed;
+        }
+        if(current_gravity != GRD.gravity) {
+            current_gravity = GRD.gravity;
+        }
+        if(current_friction != GRD.friction) {
+            current_friction = GRD.friction;
+        }
+    } catch (error) {
+        //console.log(error);
+    }
+    //--------------------------------------------------------------------
+
+    let forceX = 0;
+    let forceY = 0;
+    let forceZ = 0;
     this.force.x = 0;
     this.force.y = 0;
     this.force.z = 0;
@@ -88,7 +118,10 @@ Movement.prototype.update = function(dt) {
     
     //Only allow new imput if the current velocity is 0
     let vel_mag = Math.abs(this.entity.rigidbody.linearVelocity.x) + Math.abs(this.entity.rigidbody.linearVelocity.y) + Math.abs(this.entity.rigidbody.linearVelocity.z);
-    if(vel_mag < 0.05) {
+    
+    if(vel_mag > 0.05 && !host_recieved) host_recieved = true;
+    
+    if(vel_mag < 0.05 && host_recieved) {
         this.wait_counter++;
         if(this.wait_counter > 16) {
             // calculate force based on pressed keys
@@ -129,12 +162,29 @@ Movement.prototype.update = function(dt) {
             this.force.normalize().scale(this.speed);
         }
     }
+
+    if(this.entity.rigidbody.friction != current_friction) {
+        this.entity.rigidbody.friction = current_friction;
+    }
+
+    if(this.speed != current_speed) {
+        this.speed = current_speed;
+    }
+
+    if(this.app.systems.rigidbody.gravity != current_gravity) {
+        this.app.systems.rigidbody.gravity = current_gravity;
+    }
     
     //-------------------------------------------------------------------------------------------------
     //NETWORKING
+    if(!this.force.length()) return;
     try {
-        if(GRD.hostSocketId != sockets.id)  sendPlayerInput(this.force);
-        this.entity.rigidbody.applyImpulse(this.force);
+        if(GRD.hostSocketId != sockets.id)  {
+            host_recieved = false;
+            sendPlayerInput(this.force);
+        } else {
+            this.entity.rigidbody.applyImpulse(this.force);
+        }
     } catch (error) {
         //console.log(error);
         this.entity.rigidbody.applyImpulse(this.force);
@@ -250,6 +300,7 @@ Teleport.prototype.onTriggerEnter = function (otherEntity) {
 // orbitCamera.js
 var OrbitCamera = pc.createScript('orbitCamera');
 var camera_direction;
+var current_fov;
 
 OrbitCamera.attributes.add('autoRender', {
     type: 'boolean', 
@@ -453,6 +504,7 @@ OrbitCamera.prototype.initialize = function () {
 
     //Get Global Copy of Camera Direction for camera based movements
     camera_direction = this.entity.getRotation();
+    current_fov = this.entity.camera.fov;
 
     // If we have ticked focus on start, then attempt to position the camera where it frames
     // the focused entity and move the pivot point to entity's position otherwise, set the distance
@@ -551,6 +603,9 @@ OrbitCamera.prototype.update = function(dt) {
 
     //Get Global Copy of Camera Direction for camera based movements
     camera_direction = this.entity.getRotation();
+    if(this.entity.camera.fov != current_fov) {
+        this.entity.camera.fov = current_fov;
+    }
 
     //Update Pivot Point
     if(current_ball_pos) {
@@ -681,6 +736,7 @@ OrbitCamera.prototype._calcPitch = function(quat, yaw) {
 
 // mouseInput.js
 var MouseInput = pc.createScript('mouseInput');
+var current_sensitivity;
 
 MouseInput.attributes.add('orbitSensitivity', {
     type: 'number', 
@@ -733,6 +789,15 @@ MouseInput.prototype.initialize = function() {
     this.lookButtonDown = false;
     this.panButtonDown = false;
     this.lastPoint = new pc.Vec2();
+
+
+    current_sensitivity = this.orbitSensitivity;
+};
+
+MouseInput.prototype.update = function() { 
+    if(this.orbitSensitivity != current_sensitivity) {
+        this.orbitSensitivity = current_sensitivity;
+    }
 };
 
 
@@ -855,6 +920,15 @@ TouchInput.prototype.initialize = function() {
 
             this.app.touch.off(pc.EVENT_TOUCHMOVE, this.onTouchMove, this);
         });
+    }
+
+
+    if(!current_sensitivity) current_sensitivity =  this.orbitSensitivity;
+};
+
+TouchInput.prototype.update = function() { 
+    if(this.orbitSensitivity != current_sensitivity) {
+        this.orbitSensitivity = current_sensitivity;
     }
 };
 
@@ -1033,7 +1107,7 @@ var thisText; //Nameplate for each ball
 //Incremented each update cycle
 var tick = 0;
 //How many update frames before a game update is sent to players
-var tick_ratio = 1;
+var tick_ratio = 4;
 
 // initialize code called once per entity
 GameUpdater.prototype.initialize = function() {
@@ -1097,7 +1171,6 @@ GameUpdater.prototype.initializePlayers = function (data) {
     } 
     this.playerArray = [];
     //Create Array of All OTHER players in game
-    //For every other player in lobby create object
     for (let i = 0; i < data.Players.length; i++) {
         if(data.Players[i] != 'EMPTY') {
             if(data.Players[i].myName != data.name) {
@@ -1116,12 +1189,12 @@ GameUpdater.prototype.initializePlayers = function (data) {
 };
 
 //Remove Player
-GameUpdater.prototype.removePlayerBall = function (index) {
-    if(this.playerArray[GRD.Players[index].myName] == undefined) {console.log("BALL DOES NOT EXIST, CANNOT REMOVE"); return;}
-    if(this.playerArray[GRD.Players[index].myName].namePlate) this.playerArray[GRD.Players[index].myName].namePlate.destroy();
-    this.playerArray[GRD.Players[index].myName].destroy();
-    this.playerArray[GRD.Players[index].myName] = undefined;
-}
+GameUpdater.prototype.removePlayerBall = function (name) {
+    if(this.playerArray[name] == undefined) {console.log("BALL DOES NOT EXIST, CANNOT REMOVE"); return;}
+    if(this.playerArray[name].namePlate) this.playerArray[name].namePlate.destroy();
+    this.playerArray[name].destroy();
+    this.playerArray[name] = undefined;
+};
 
 //Add Player
 GameUpdater.prototype.addPlayerBall = function (data) {
@@ -1138,7 +1211,6 @@ GameUpdater.prototype.createPlayerEnitity = function(pos, lin_vel, ang_vel, name
     var newText = thisText.clone();
     newText.focusEntity = newPlayer;
     newText.focusName = name;
-    console.log(newText);
     thisOther.getParent().addChild(newText);  //Add Copy to the scene structure
 
     newPlayer.namePlate = newText;
@@ -1194,7 +1266,10 @@ GameUpdater.prototype.getPosition = function(name) {
 };
 
 GameUpdater.prototype.applyInput = function(data) {
-    if(this.playerArray[data.name].rigidbody) {this.playerArray[data.name].rigidbody.applyImpulse(data.force);}};
+    if(this.playerArray[data.name].rigidbody) {
+        this.playerArray[data.name].rigidbody.applyImpulse(data.force);
+    }
+};
 
 function mul_by_c(vector, c) {
     vector.x = vector.x * c;
@@ -1221,7 +1296,7 @@ JoinUi.prototype.initialize = function() {
 
     // Add the HTML
     this.div = document.createElement('div');
-    this.div.classList.add('container');
+    this.div.classList.add('joinContainer');
     this.div.innerHTML = this.html.resource || '';
 
     // append to body
@@ -1269,7 +1344,7 @@ JoinUi.prototype.bindEvents = function() {
 };
 
 function joinComplete() {
-    let div = document.body.querySelector('.container');
+    let div = document.body.querySelector('.joinContainer');
     document.body.removeChild(div);
     loadScene('Main Scene', { hierarchy: true, settings: true }, (err, loadedSceneRootEntity) => {
         if (err) {
@@ -1364,14 +1439,28 @@ TextPosition.prototype.changeFocus = function(new_entity) {this.entity.focusEnti
 // GameUi.js
 var GameUi = pc.createScript('gameUi');
 
+//Game Settings
+var current_collision = true;
+
+//Temporary hold for network.js variables
+var MAX_HOLES = 4;
+var current_holeLimit = 4;
+var current_timeLimit = 120;
+var current_playerLimit = 8;
+
+//General Settings
+var current_volume = 100;
+var current_sfxvolume = 100;
+var current_musicvolume = 100;
+var current_tutorial = true;
+
 GameUi.attributes.add('css', {type: 'asset', assetType:'css', title: 'Main CSS Asset'});
 GameUi.attributes.add('html', {type: 'asset', assetType:'html', title: 'Main HTML Asset'});
-
-GameUi.attributes.add('share_css', {type: 'asset', assetType:'css', title: 'Share CSS Asset'});
 GameUi.attributes.add('share_html', {type: 'asset', assetType:'html', title: 'Share HTML Asset'});
-
-GameUi.attributes.add('settings_css', {type: 'asset', assetType:'css', title: 'Settings CSS Asset'});
 GameUi.attributes.add('settings_html', {type: 'asset', assetType:'html', title: 'Settings HTML Asset'});
+GameUi.attributes.add('host_settings_html', {type: 'asset', assetType:'html', title: 'Game Settings HTML Asset'});
+GameUi.attributes.add('adv_host_settings_html', {type: 'asset', assetType:'html', title: 'Advanced Game Settings HTML Asset'});
+GameUi.attributes.add('player_settings_html', {type: 'asset', assetType:'html', title: 'General Settings HTML Asset'});
 
 // initialize code called once per entity
 GameUi.prototype.initialize = function() {
@@ -1396,107 +1485,613 @@ GameUi.prototype.initialize = function() {
 };
 
 
-GameUi.prototype.append_html = function(html_element, css_element, bind_index) {
-    // create STYLE element
-    let style2 = document.createElement('style');
-    // append to head
-    document.head.appendChild(style2);
-
-    style2.innerHTML = css_element.resource || '';
-
+GameUi.prototype.append_html = function(ref, html_element, bind_index) {
     // Add the HTML
-    this.div = document.createElement('div');
-    this.div.classList.add('container2');
-
-    this.div.innerHTML = html_element.resource || '';
-
-    document.body.appendChild(this.div);
-    this.eventBinder(bind_index);
+    let div = document.createElement('div');
+    div.classList.add('option');
+    let menuDiv = document.body.querySelector(".optionMenu");
+    div.innerHTML = html_element.resource || '';
+    menuDiv.appendChild(div);
+    this.eventBinder(ref, bind_index);
 };
 
-GameUi.prototype.remove_html = function(html) {
-    document.body.removeChild(html);
+GameUi.prototype.remove_html = function() {
+    let menuDiv = document.body.querySelector(".optionMenu");
+    let option = document.body.querySelector(".option");
+    if(option) menuDiv.removeChild(option);
 };
 
-GameUi.prototype.eventBinder = function(bind_index) {
+GameUi.prototype.eventBinder = function(ref, bind_index) {
     switch(bind_index) {
+        //Share Events
         case 0:
-            this.qr = document.getElementById('qrcode');
-            this.url_text = document.getElementById('urltext');
-            this.link = document.getElementById('copylink');
-        
-            const wd = window.innerWidth;
-            const ht = window.innerHeight;
-            let sz = (wd > ht) ? ht : wd;
-
-            this.url_text.textContent = location.href;
-            generateQR(location.href, sz/1.5);
-            this.link.addEventListener('click', function() {
-                console.log("Copying Link");
-                navigator.clipboard.writeText(location.href);
-                if(!document.getElementById('copied')) {
-                    document.getElementById('copylink').insertAdjacentHTML("afterend",
-                    '<div class="gameInfo" id="copied">Link Copied!</div>');
-                }
-            }, false);
+            ref.bindEventShare(ref);
             break;
+        //Main Setting Events
         case 1:
+            ref.bindEventSettings(ref);
+            break;
+        //Game Settings Events
+        case 2:
+            ref.bindEventGameSettings(ref);
+            break;
+        //General Settings Events
+        case 3:
+            ref.bindEventGeneralSettings(ref);
+            break;
+        //Advanced Game Settings Events
+        case 4:
+            ref.bindEventAdvGameSettings(ref);
             break;
     }
 };
 
+//Main Event Binder for Share and Settings Button
 GameUi.prototype.bindEvents = function(ref) {
 
-    this.share_button = this.div.querySelector('.share');
-    this.gameInfo = this.div.querySelector('.gameInfo');
-    this.settings_button = this.div.querySelector('.settings');
+    //Get HTML Elements of GameBar
+    this.share_button = document.getElementById('shareButton');
+    this.settings_button = document.getElementById('settingsButton');
+    this.scoreboard_button = document.getElementById('scoreboardButton');
+    this.gameid = document.getElementById('gameid');
+    this.players = document.getElementById('playercount');
 
+    //Share Button
     if(this.share_button) {
         this.share_button.addEventListener('click', function() {
-            let cont = document.body.querySelector('.container2');
-            let other_cont = document.body.querySelector('.generalSettings');
-            if(cont) {
-                if(other_cont) {
-                    ref.remove_html(cont);
-                    ref.append_html(ref.share_html, ref.share_css, 0);
+            let thisMenu = document.querySelector('.shareOptions');
+            let otherMenu = document.querySelector('.settingsOptions');
+
+            if(thisMenu || otherMenu) {
+                if(otherMenu) {
+                    ref.remove_html();
+                    ref.append_html(ref, ref.share_html, 0);
                 } else {
-                    ref.remove_html(cont);
+                    ref.remove_html();
                 }
             } else {
-                ref.append_html(ref.share_html, ref.share_css, 0);
+                ref.append_html(ref, ref.share_html, 0);
             }
 
         }, false);
     }
 
+    //Scoreboard Button
+    if(this.scoreboard_button) {
+        this.scoreboard_button.addEventListener('click', function() {
+            
+        }, false);
+    }
+
+    //Settings Button
     if( this.settings_button) {
          this.settings_button.addEventListener('click', function() {
-            let cont = document.body.querySelector('.container2');
-            let other_cont = document.body.querySelector('.link');
-            if(cont) {
-                if(other_cont) {
-                    ref.remove_html(cont);
-                    ref.append_html(ref.settings_html, ref.settings_css, 1);
+            let thisMenu = document.querySelector('.settingsOptions');
+            let otherMenu = document.querySelector('.shareOptions');
+
+            if(thisMenu || otherMenu) {
+                if(otherMenu) {
+                    ref.remove_html();
+                    ref.checkNetwork(ref, "TO");
                 } else {
-                    ref.remove_html(cont);
+                    ref.remove_html();
                 }
             } else {
-                ref.append_html(ref.settings_html, ref.settings_css, 1);
+                ref.checkNetwork(ref, "TO");
             }
         }, false);
     }
 };
+
+//----------------------------------------------------------------
+//NETWORK
+GameUi.prototype.checkNetwork = function (ref, TO_FROM) {
+    if(TO_FROM = "TO") {
+        //If connected to network.js
+        try {
+            //If host, show Game Settings
+            if(GRD.hostSocketId == sockets.id) {
+                ref.append_html(ref, ref.settings_html, 1);
+            } else {
+                ref.append_html(ref, ref.player_settings_html, 3);
+            }
+        //If not connected to network.js
+        } catch (error) {
+            ref.append_html(ref, ref.settings_html, 1);
+        }
+    } else if(TO_FROM = "FROM") {
+
+    }
+};
+//----------------------------------------------------------------
+
+//Share Menu Events
+GameUi.prototype.bindEventShare = function (ref) {
+    //Get HTML Elements
+    this.qr = document.getElementById('qrcode');
+    this.url_text = document.getElementById('urltext');
+    this.link = document.getElementById('copylink');
+    this.back = document.getElementById('backButton');
+
+    //Generate QR Code
+    const wd = window.innerWidth;
+    const ht = window.innerHeight;
+    let sz = (wd > ht) ? ht : wd;
+    this.url_text.textContent = location.href;
+    generateQR(location.href, sz/1.5);
+
+    //Copy Link Button
+    this.link.addEventListener('click', function() {
+        console.log("Copying Link");
+        navigator.clipboard.writeText(location.href);
+        if(!document.getElementById('copied')) {
+            document.getElementById('copylink').insertAdjacentHTML("afterend",
+            '<div class="text" id="copied">Link Copied!</div>');
+        }
+    }, false);
+
+    //Back Button
+    this.back.addEventListener('click', function() {
+        console.log("Back");
+        ref.remove_html();
+    }, false);
+};
+
+//Settings Main Menu Events
+GameUi.prototype.bindEventSettings = function (ref) {
+    //Get HTML Elements
+    this.game_button = document.getElementById('gameButton');
+    this.general_button = document.getElementById('generalButton');
+    this.back = document.getElementById('backButton');
+
+    //Game Settings Button
+    this.game_button.addEventListener('click', function() {
+        console.log("Game Settings");
+        ref.remove_html();
+        ref.append_html(ref, ref.host_settings_html, 2);
+    }, false);
+
+    //General Settings Button
+    this.general_button.addEventListener('click', function() {
+        console.log("General Settings");
+        ref.remove_html();
+        ref.append_html(ref, ref.player_settings_html, 3);
+    }, false);
+
+    //Back Button
+    this.back.addEventListener('click', function() {
+        console.log("Back");
+        ref.remove_html();
+    }, false);
+};
+
+
+//Game Settings Event Listeners
+GameUi.prototype.bindEventGameSettings = function (ref) {
+
+    //Player Limit
+    let pm = document.getElementById('playerMinus');
+    let pt = document.getElementById('currentPlayer');
+    let pp = document.getElementById('playerPlus');
+    //-------------------------------------------------------------------------
+    //NETWORK
+    try {pt.textContent = GRD.playerLimit;} catch (error) {pt.textContent = current_playerLimit;}
+    //--------------------------------------------------------------------------
+    pm.addEventListener('click', function() {
+        let c_player = parseInt(pt.textContent);
+        if(c_player <= 1) return;
+        //-------------------------------------------------------------------------
+        //NETWORK
+        try {
+            if(GRD.playerCount >= c_player) return;
+            c_player = c_player - 1;
+            GRD.playerLimit = c_player;
+            reducePlayerArray();
+            pt.textContent = GRD.playerLimit;     
+        } catch (error) {
+            c_player = c_player - 1;
+            current_playerLimit = c_player;
+            pt.textContent = current_playerLimit;
+        }
+        //--------------------------------------------------------------------------
+    }, false);
+    pp.addEventListener('click', function() {
+        let c_player = parseInt(pt.textContent);
+        //-------------------------------------------------------------------------
+        //NETWORK
+        try {
+            if(GRD.playerLimit) {
+                c_player = c_player + 1;
+                GRD.playerLimit = c_player;
+                increasePlayerArray();
+                pt.textContent = GRD.playerLimit;
+            }    
+        } catch (error) {
+            c_player = c_player + 1;
+            current_playerLimit = c_player;
+            pt.textContent = current_playerLimit;
+        }
+        //--------------------------------------------------------------------------
+    }, false);
+
+    //Time Limit
+    let tm = document.getElementById('timeMinus');
+    let tt = document.getElementById('currentTime');
+    let tp = document.getElementById('timePlus');
+    //-------------------------------------------------------------------------
+    //NETWORK
+    try {tt.textContent = GRD.timeLimit + "s";} catch (error) {tt.textContent = current_timeLimit + "s";}
+    //--------------------------------------------------------------------------
+    tm.addEventListener('click', function() {
+        //-------------------------------------------------------------------------
+        //NETWORK
+        try {
+            let c_time = parseInt(GRD.timeLimit);
+            if(c_time <= 1) return;
+            c_time = c_time - 1;
+            GRD.timeLimit = c_time;
+            tt.textContent = GRD.timeLimit + "s";     
+        } catch (error) {
+            let c_time = parseInt(current_timeLimit);
+            if(c_time <= 1) return;
+            c_time = c_time - 1;
+            current_timeLimit = c_time;
+            tt.textContent = current_timeLimit + "s";
+        }
+        //--------------------------------------------------------------------------
+    }, false);
+    tp.addEventListener('click', function() {
+        //-------------------------------------------------------------------------
+        //NETWORK
+        try {
+            let c_time = parseInt(GRD.timeLimit);
+            c_time = c_time + 1;
+            GRD.timeLimit = c_time;
+            tt.textContent = GRD.timeLimit + "s";     
+        } catch (error) {
+            let c_time = parseInt(current_timeLimit);
+            c_time = c_time + 1;
+            current_timeLimit = c_time;
+            tt.textContent = current_timeLimit + "s";
+        }
+        //--------------------------------------------------------------------------
+    }, false);
+
+    //Hole Limit
+    let hm = document.getElementById('holeMinus');
+    let ht = document.getElementById('currentHole');
+    let hp = document.getElementById('holePlus');
+    //-------------------------------------------------------------------------
+    //NETWORK
+    try {ht.textContent = GRD.holeLimit;} catch (error) {ht.textContent = current_holeLimit;}
+    //--------------------------------------------------------------------------
+    hm.addEventListener('click', function() {
+        //-------------------------------------------------------------------------
+        //NETWORK
+        try {
+            let c_hole = parseInt(GRD.holeLimit);
+            if(c_hole <= 1) return;
+            c_hole = c_hole - 1;
+            GRD.holeLimit = c_hole;
+            ht.textContent = GRD.holeLimit;     
+        } catch (error) {
+            let c_hole = parseInt(current_holeLimit);
+            if(c_hole <= 1) return;
+            c_hole = c_hole - 1;
+            current_holeLimit = c_hole; 
+            ht.textContent = current_holeLimit;
+        }
+        //--------------------------------------------------------------------------
+    }, false);
+    hp.addEventListener('click', function() {
+        //-------------------------------------------------------------------------
+        //NETWORK
+        try {
+            let c_hole = parseInt(GRD.holeLimit);
+            if(c_hole >= MAX_HOLES) return;
+            c_hole = c_hole + 1;
+            GRD.holeLimit = c_hole;
+            ht.textContent = GRD.holeLimit;     
+        } catch (error) {
+            let c_hole = parseInt(current_holeLimit);
+            if(c_hole >= MAX_HOLES) return;
+            c_hole = c_hole + 1;
+            current_holeLimit = c_hole; 
+            ht.textContent = current_holeLimit;
+        }
+        //--------------------------------------------------------------------------
+    }, false);
+
+    //Collision
+    let cm = document.getElementById('collisionMinus');
+    let ct = document.getElementById('currentCollision');
+    let cp = document.getElementById('collisionPlus');
+    ct.textContent = current_collision ? "Yes" : "No";
+    cm.addEventListener('click', function() {
+        current_collision = false;
+        ct.textContent = current_collision ? "Yes" : "No";
+    }, false);
+    cp.addEventListener('click', function() {
+        current_collision = true;
+        ct.textContent = current_collision ? "Yes" : "No";
+    }, false);
+
+    //Get HTML Elements
+    this.back = document.getElementById('backButton');
+    this.advanced = document.getElementById('advancedButton');
+
+    //Advanced Settings Button
+    this.advanced.addEventListener('click', function() {
+        console.log("Advanced");
+        let exists = document.querySelector('.advancedOption');
+        let ac = document.getElementById('advancedContainer');
+        if(!exists) {
+            let adv_div = document.createElement('div');
+            adv_div.classList.add('advancedOption');
+            adv_div.innerHTML = ref.adv_host_settings_html.resource || '';
+            ac.appendChild(adv_div);
+            ref.eventBinder(ref, 4);
+        } else {
+            ac.removeChild(exists);
+        }
+    }, false);
+    //Back Button
+    this.back.addEventListener('click', function() {
+        console.log("Back");
+        ref.remove_html();
+        ref.append_html(ref, ref.settings_html, 1);
+    }, false);
+};
+
+GameUi.prototype.bindEventGeneralSettings = function (ref) {
+    //Volume
+    let vm = document.getElementById('volumeMinus');
+    let vt = document.getElementById('currentVolume');
+    let vp = document.getElementById('volumePlus');
+    vt.textContent = current_volume;
+    vm.addEventListener('click', function() {
+        let c_vol = parseInt(vt.textContent);
+        if(c_vol >= 5) {
+            c_vol = c_vol - 5;
+            current_volume = c_vol;
+            vt.textContent = current_volume;
+        }
+    }, false);
+    vp.addEventListener('click', function() {
+        let c_vol = parseInt(vt.textContent);
+        if(c_vol <= 95) {
+            c_vol = c_vol + 5;
+            current_volume = c_vol;
+            vt.textContent = current_volume;
+        }
+    }, false);
+
+    //SFX Volume
+    let sfxm = document.getElementById('sfxvolumeMinus');
+    let sfxt = document.getElementById('currentSFXVolume');
+    let sfxp = document.getElementById('sfxvolumePlus');
+    sfxt.textContent = current_sfxvolume;
+    sfxm.addEventListener('click', function() {
+        let c_vol = parseInt(sfxt.textContent);
+        if(c_vol >= 5) {
+            c_vol = c_vol - 5;
+            current_sfxvolume = c_vol;
+            sfxt.textContent = current_sfxvolume;
+        }
+    }, false);
+    sfxp.addEventListener('click', function() {
+        let c_vol = parseInt(sfxt.textContent);
+        if(c_vol <= 95) {
+            c_vol = c_vol + 5;
+            current_sfxvolume = c_vol;
+            sfxt.textContent = current_sfxvolume;
+        }
+    }, false);
+
+    //Music Volume
+    let musm = document.getElementById('musicvolumeMinus');
+    let must = document.getElementById('currentMusicVolume');
+    let musp = document.getElementById('musicvolumePlus');
+    must.textContent = current_musicvolume;
+    musm.addEventListener('click', function() {
+        let c_vol = parseInt(must.textContent);
+        if(c_vol >= 5) {
+            c_vol = c_vol - 5;
+            current_musicvolume = c_vol;
+            must.textContent = current_musicvolume;
+        }
+    }, false);
+    musp.addEventListener('click', function() {
+        let c_vol = parseInt(must.textContent);
+        if(c_vol <= 95) {
+            c_vol = c_vol + 5;
+            current_musicvolume = c_vol;
+            must.textContent = current_musicvolume;
+        }
+    }, false);
+
+    //Tutorial
+    let tm = document.getElementById('tutorialMinus');
+    let tt = document.getElementById('currentTutorial');
+    let tp = document.getElementById('tutorialPlus');
+    tt.textContent = current_tutorial ? "Yes" : "No";
+    tm.addEventListener('click', function() {
+        current_tutorial = false;
+        tt.textContent = current_tutorial ? "Yes" : "No";
+    }, false);
+    tp.addEventListener('click', function() {
+        current_tutorial = true;
+        tt.textContent = current_tutorial ? "Yes" : "No";
+    }, false);
+
+    //FOV
+    let fovm = document.getElementById('fovMinus');
+    let fovt = document.getElementById('currentFov');
+    let fovp = document.getElementById('fovPlus');
+    fovt.textContent = current_fov.toFixed(1);
+    fovm.addEventListener('click', function() {
+        let c_fov = parseFloat(fovt.textContent);
+        c_fov = c_fov - 5;
+        current_fov = c_fov;
+        fovt.textContent = current_fov.toFixed(1);
+    }, false);
+    fovp.addEventListener('click', function() {
+        let c_fov = parseFloat(fovt.textContent);
+        c_fov = c_fov + 5;
+        current_fov = c_fov;
+        fovt.textContent = current_fov.toFixed(1);
+    }, false);
+
+    //Sensitivity
+    let senm = document.getElementById('senMinus');
+    let sent = document.getElementById('currentSen');
+    let senp = document.getElementById('senPlus');
+    sent.textContent = current_sensitivity.toFixed(1);
+    senm.addEventListener('click', function() {
+        let c_sen = parseFloat(sent.textContent);
+        c_sen = c_sen - 0.1;
+        current_sensitivity = c_sen;
+        sent.textContent = current_sensitivity.toFixed(1);
+    }, false);
+    senp.addEventListener('click', function() {
+        let c_sen = parseFloat(sent.textContent);
+        c_sen = c_sen + 0.1;
+        current_sensitivity = c_sen;
+        sent.textContent = current_sensitivity.toFixed(1);
+    }, false);
+
+    //Get HTML Elements
+    this.back = document.getElementById('backButton');
+    //Back Button
+    this.back.addEventListener('click', function() {
+        console.log("Back");
+        ref.remove_html();
+        ref.append_html(ref, ref.settings_html, 1);
+    }, false);
+};
+
+
+//Advanced Game Settings Event Listeners
+GameUi.prototype.bindEventAdvGameSettings = function (ref) {
+    //Gravity
+    let gm = document.getElementById('gravityMinus');
+    let gt = document.getElementById('currentGravity');
+    let gp = document.getElementById('gravityPlus');
+    gt.textContent = current_gravity.y.toFixed(1);
+    gm.addEventListener('click', function() {
+        let c_grav = parseFloat(gt.textContent);
+        c_grav = c_grav - 0.1;
+        current_gravity.y = c_grav;
+        GameUi.updateNetwork(ref, "GRAVITY");
+        c_grav = c_grav.toFixed(1);
+        gt.textContent = c_grav;
+    }, false);
+    gp.addEventListener('click', function() {
+        let c_grav = parseFloat(gt.textContent);
+        c_grav = c_grav + 0.1;
+        current_gravity.y = c_grav;
+        GameUi.updateNetwork(ref, "GRAVITY");
+        c_grav = c_grav.toFixed(1);
+        gt.textContent = c_grav;
+    }, false);
+
+    //Friction
+    let fm = document.getElementById('frictionMinus');
+    let ft = document.getElementById('currentFriction');
+    let fp = document.getElementById('frictionPlus');
+    ft.textContent = current_friction.toFixed(1);
+    fm.addEventListener('click', function() {
+        let c_fric = ft.textContent = parseFloat(ft.textContent);
+        if(c_fric > 0) {
+            c_fric = c_fric - 0.1;
+            current_friction = c_fric;
+            GameUi.updateNetwork(ref, "FRICTION");
+            ft.textContent = current_friction.toFixed(1);
+        }
+    }, false);
+    fp.addEventListener('click', function() {
+        let c_fric = ft.textContent = parseFloat(ft.textContent);
+        if(c_fric < 1) {
+            c_fric = c_fric + 0.1;
+            current_friction = c_fric;
+            GameUi.updateNetwork(ref, "FRICTION");
+            ft.textContent = current_friction.toFixed(1);
+        }
+    }, false);
+
+    //Speed
+    let sm = document.getElementById('speedMinus');
+    let st = document.getElementById('currentSpeed');
+    let sp = document.getElementById('speedPlus');
+    st.textContent = current_speed.toFixed(1);
+    sm.addEventListener('click', function() {
+        let c_speed = parseFloat(st.textContent);
+        c_speed = c_speed - 1.0;
+        current_speed = c_speed;
+        GameUi.updateNetwork(ref, "SPEED");
+        st.textContent = current_speed.toFixed(1);
+    }, false);
+    sp.addEventListener('click', function() {
+        let c_speed = parseFloat(st.textContent);
+        c_speed = c_speed + 1.0;
+        current_speed = c_speed;
+        GameUi.updateNetwork(ref, "SPEED");
+        st.textContent = current_speed.toFixed(1);
+    }, false);
+};
+
+//--------------------------------------------------------------
+//NETWORK
+GameUi.updateNetwork = function (ref, UPDATE) {
+    try {
+        switch (UPDATE) {
+            case "GRAVITY":
+                GRD.gravity = current_gravity;
+                break;
+            case "FRICTION":
+                GRD.friction = current_friction;
+                break;
+            case "SPEED":
+                GRD.speed = current_speed;
+                break;
+        }
+    } catch (error) {
+        //console.log(error);
+    }
+};
+//--------------------------------------------------------------
+
+
 
 GameUi.prototype.update = function() {
     //--------------------------------------------------------------------
     //NETWORK
     try {
         if(GRD.gameId) {
-            if(this.gameInfo.textContent != GRD.gameId)  this.gameInfo.textContent = GRD.gameId;
+            //Update Game ID
+            let gameid = document.getElementById('gameid');
+            if(gameid.textContent != GRD.gameId) gameid.textContent = GRD.gameId;
+            //Update Player Count
+            let players = document.getElementById('playercount');
+            let playerarray = this.players.textContent.split('/');
+            let update = false;
+            if(playerarray[0] != GRD.playerCount) {playerarray[0] = GRD.playerCount;  update = true;}
+            if(playerarray[1] != GRD.playerLimit) {playerarray[1] = GRD.playerLimit; update = true;}
+            if(update) players.textContent = playerarray[0] + "/" + playerarray[1];
         }
             
     } catch (error) {
         //console.log(error);
+        //Update Game ID
+        let gameid = document.getElementById('gameid');
+        if(gameid.textContent != "12345") gameid.textContent = "12345";
+        //Update Player Count
+        let players = document.getElementById('playercount');
+        let playerarray = this.players.textContent.split('/');
+        let update = false;
+        if(playerarray[0] != "1") {playerarray[0] = 1;  update = true;}
+        if(playerarray[1] != current_playerLimit) {playerarray[1] = current_playerLimit; update = true;}
+        if(update) players.textContent = playerarray[0] + "/" + playerarray[1];
     }
     //--------------------------------------------------------------------
 };
