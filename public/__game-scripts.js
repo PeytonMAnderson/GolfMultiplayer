@@ -1586,7 +1586,7 @@ GameUi.prototype.bindEvents = function(ref) {
 //----------------------------------------------------------------
 //NETWORK
 GameUi.prototype.checkNetwork = function (ref, TO_FROM) {
-    if(TO_FROM = "TO") {
+    if(TO_FROM == "TO") {
         //If connected to network.js
         try {
             //If host, show Game Settings
@@ -1599,8 +1599,17 @@ GameUi.prototype.checkNetwork = function (ref, TO_FROM) {
         } catch (error) {
             ref.append_html(ref, ref.settings_html, 1);
         }
-    } else if(TO_FROM = "FROM") {
-
+    } else if (TO_FROM == "FROM") {
+        //If connected to network.js
+        try {
+            //If host, show Game Settings
+            if(GRD.hostSocketId == sockets.id) {
+                ref.append_html(ref, ref.settings_html, 1);
+            }
+        //If not connected to network.js
+        } catch (error) {
+            ref.append_html(ref, ref.settings_html, 1);
+        }
     }
 };
 //----------------------------------------------------------------
@@ -1839,10 +1848,11 @@ GameUi.prototype.bindEventGameSettings = function (ref) {
     this.back.addEventListener('click', function() {
         console.log("Back");
         ref.remove_html();
-        ref.append_html(ref, ref.settings_html, 1);
+        ref.checkNetwork(ref, "FROM");
     }, false);
 };
 
+//General Settings
 GameUi.prototype.bindEventGeneralSettings = function (ref) {
     //Volume
     let vm = document.getElementById('volumeMinus');
@@ -1966,7 +1976,7 @@ GameUi.prototype.bindEventGeneralSettings = function (ref) {
     this.back.addEventListener('click', function() {
         console.log("Back");
         ref.remove_html();
-        ref.append_html(ref, ref.settings_html, 1);
+        ref.checkNetwork(ref, "FROM");
     }, false);
 };
 

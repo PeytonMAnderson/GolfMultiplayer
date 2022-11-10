@@ -247,8 +247,6 @@ var App = {
                     if(playerArrayEqual(GRD.Players, data.Players) == false) {
                         //If different ammount of players, reset players
                         console.log("reseting players");
-                        console.log(GRD.Players);
-                        console.log(data.Players);
                         resetPlayers(data.Players);
                     } else {
                         //Update each players position
