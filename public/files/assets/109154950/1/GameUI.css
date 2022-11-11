@@ -23,7 +23,7 @@
 .textLeft {
     text-align: left;
     padding: 0.5%;
-    color: rgb(255, 255, 255);
+    color: #ff0;
     font-size: 18px;
 }
 
@@ -31,15 +31,13 @@
 
 
 
-.infoBar {
+.header {
     width: 100%;
     flex: 0 1 auto;
     display: grid;
     grid-template-columns: min-content min-content 1fr min-content;
-    background-color: #222;
-    color: #fff;
+    background-color: transparent;
     font-weight: 100;
-    box-shadow: 0 0 5px rgba(0, 0, 0, .3);
 }
 
 .gameInfo {
@@ -55,16 +53,18 @@
 
 
 .button {
-    width: fit-content;
-    text-align: center;
-    display: inline-block;
-    margin-left: auto;
-    margin-right: auto;
+    height: 40px;
+    display: flex;  
+    position: relative;
+    justify-content: center;  
+    align-items: center;  
+    margin-left: 20px;
+    margin-right: 20px;
+  
 
-    background-color: #07f;
-    padding: 0 16px;
+    background-color: #38A700;
     font-size: 18px;
-    line-height: 32px;
+    line-height: 24px;
     border-radius: 4px;
     cursor: pointer;
     
@@ -77,18 +77,17 @@
 }
 
 
+
 .settingButton {
     margin-top: 2%;
     margin-bottom: 2%;
-    width: fit-content;
-    text-align: center;
     display: inline-block;
     margin-left: auto;
     margin-right: auto;
 
-    background-color: #07f;
+    background-color: #38A700;
     font-size: 18px;
-    line-height: 32px;
+    line-height: 24px;
     border-radius: 4px;
     padding: 0 16px;
     cursor: pointer;
@@ -114,10 +113,8 @@
     height: 100%;
 
     text-align: center;
-    background-color: rgba(24, 24, 24, 0.918);
-    color: #fff;
+    background-color: transparent;
     font-weight: 100;
-    box-shadow: 0 0 5px rgba(0, 0, 0, .3);
 }
 
 
@@ -160,6 +157,20 @@
     margin-right: auto;
     display: grid;
     grid-template-columns: 1fr min-content 20% min-content;
+}
+
+
+.playerScore {
+    margin-left: auto;
+    margin-right: auto;
+    width: 50%;
+    display: grid;
+    grid-template-columns: min-content 1fr min-content;
+}
+
+.scores {
+    display: grid;
+    grid-template-columns: auto auto auto auto;
 }
 
 

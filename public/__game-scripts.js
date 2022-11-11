@@ -71,10 +71,10 @@ Movement.attributes.add('speed', {
 // initialize code called once per entity
 Movement.prototype.initialize = function() {
     this.force = new pc.Vec3();
-
     current_friction = this.entity.rigidbody.friction;
     current_speed = this.speed;
     current_gravity = this.app.systems.rigidbody.gravity;
+
     try {
         GameUi.updateNetwork(this, "GRAVITY");
         GameUi.updateNetwork(this, "FRICTION");
@@ -82,11 +82,11 @@ Movement.prototype.initialize = function() {
     } catch (error) {
         console.log(error);
     }
-
 };
 
 // update code called every frame
 Movement.prototype.update = function(dt) {
+
     //--------------------------------------------------------------------
     //NETWORK
     try {
@@ -104,9 +104,9 @@ Movement.prototype.update = function(dt) {
     }
     //--------------------------------------------------------------------
 
-    let forceX = 0;
-    let forceY = 0;
-    let forceZ = 0;
+    var forceX = 0;
+    var forceY = 0;
+    var forceZ = 0;
     this.force.x = 0;
     this.force.y = 0;
     this.force.z = 0;
@@ -122,7 +122,7 @@ Movement.prototype.update = function(dt) {
     
     //Only allow new imput if the current velocity is 0
     let vel_mag = Math.abs(this.entity.rigidbody.linearVelocity.x) + Math.abs(this.entity.rigidbody.linearVelocity.y) + Math.abs(this.entity.rigidbody.linearVelocity.z);
-    
+        
     if(vel_mag > 0.05 && !host_recieved) host_recieved = true;
     
     if(vel_mag < 0.05 && host_recieved) {
@@ -171,7 +171,7 @@ Movement.prototype.update = function(dt) {
         this.entity.rigidbody.friction = current_friction;
     }
 
-    if(this.speed != current_speed) {
+    if(this.speeed != current_speed) {
         this.speed = current_speed;
     }
 
@@ -188,9 +188,10 @@ Movement.prototype.update = function(dt) {
             sendPlayerInput(this.force);
         } else {
             this.entity.rigidbody.applyImpulse(this.force);
+            GRD.Players[getPlayer(myName)].myScores[GRD.holeNumber - 1]++;
         }
     } catch (error) {
-        //console.log(error);
+        console.log(error);
         this.entity.rigidbody.applyImpulse(this.force);
     }
     //-------------------------------------------------------------------------------------------------
@@ -1175,6 +1176,7 @@ GameUpdater.prototype.initializePlayers = function (data) {
     } 
     this.playerArray = [];
     //Create Array of All OTHER players in game
+    //For every other player in lobby create object
     for (let i = 0; i < data.Players.length; i++) {
         if(data.Players[i] != 'EMPTY') {
             if(data.Players[i].myName != data.name) {
@@ -1215,6 +1217,7 @@ GameUpdater.prototype.createPlayerEnitity = function(pos, lin_vel, ang_vel, name
     var newText = thisText.clone();
     newText.focusEntity = newPlayer;
     newText.focusName = name;
+    console.log(newText);
     thisOther.getParent().addChild(newText);  //Add Copy to the scene structure
 
     newPlayer.namePlate = newText;
@@ -1272,6 +1275,7 @@ GameUpdater.prototype.getPosition = function(name) {
 GameUpdater.prototype.applyInput = function(data) {
     if(this.playerArray[data.name].rigidbody) {
         this.playerArray[data.name].rigidbody.applyImpulse(data.force);
+        GRD.Players[getPlayer(data.name)].myScores[GRD.holeNumber - 1]++;
     }
 };
 
@@ -1359,10 +1363,6 @@ function joinComplete() {
         }
     });
 }
-
-
-
-
 
 // TextPosition.js
 var TextPosition = pc.createScript('textPosition');
@@ -1465,6 +1465,7 @@ GameUi.attributes.add('settings_html', {type: 'asset', assetType:'html', title: 
 GameUi.attributes.add('host_settings_html', {type: 'asset', assetType:'html', title: 'Game Settings HTML Asset'});
 GameUi.attributes.add('adv_host_settings_html', {type: 'asset', assetType:'html', title: 'Advanced Game Settings HTML Asset'});
 GameUi.attributes.add('player_settings_html', {type: 'asset', assetType:'html', title: 'General Settings HTML Asset'});
+GameUi.attributes.add('scoreboard_html', {type: 'asset', assetType:'html', title: 'Scoreboard HTML Asset'});
 
 // initialize code called once per entity
 GameUi.prototype.initialize = function() {
@@ -1527,6 +1528,9 @@ GameUi.prototype.eventBinder = function(ref, bind_index) {
         case 4:
             ref.bindEventAdvGameSettings(ref);
             break;
+        case 10:
+            ref.bindEventScoreboard(ref);
+            break;
     }
 };
 
@@ -1544,10 +1548,11 @@ GameUi.prototype.bindEvents = function(ref) {
     if(this.share_button) {
         this.share_button.addEventListener('click', function() {
             let thisMenu = document.querySelector('.shareOptions');
-            let otherMenu = document.querySelector('.settingsOptions');
+            let settingsMenu = document.querySelector('.settingsOptions');
+            let scoreboardMenu = document.querySelector('.scoreboardOptions');
 
-            if(thisMenu || otherMenu) {
-                if(otherMenu) {
+            if(thisMenu || settingsMenu || scoreboardMenu) {
+                if(settingsMenu || scoreboardMenu) {
                     ref.remove_html();
                     ref.append_html(ref, ref.share_html, 0);
                 } else {
@@ -1556,14 +1561,26 @@ GameUi.prototype.bindEvents = function(ref) {
             } else {
                 ref.append_html(ref, ref.share_html, 0);
             }
-
         }, false);
     }
 
     //Scoreboard Button
     if(this.scoreboard_button) {
         this.scoreboard_button.addEventListener('click', function() {
-            
+            let thisMenu = document.querySelector('.scoreboardOptions');
+            let shareMenu = document.querySelector('.shareOptions');
+            let settingsMenu = document.querySelector('.settingsOptions');
+
+            if(thisMenu || settingsMenu || shareMenu) {
+                if(settingsMenu || shareMenu) {
+                    ref.remove_html();
+                    ref.append_html(ref, ref.scoreboard_html, 10);
+                } else {
+                    ref.remove_html();
+                }
+            } else {
+                ref.append_html(ref, ref.scoreboard_html, 10);
+            }
         }, false);
     }
 
@@ -1571,10 +1588,11 @@ GameUi.prototype.bindEvents = function(ref) {
     if( this.settings_button) {
          this.settings_button.addEventListener('click', function() {
             let thisMenu = document.querySelector('.settingsOptions');
-            let otherMenu = document.querySelector('.shareOptions');
+            let shareMenu = document.querySelector('.shareOptions');
+            let scoreboardMenu = document.querySelector('.scoreboardOptions');
 
-            if(thisMenu || otherMenu) {
-                if(otherMenu) {
+            if(thisMenu || shareMenu || scoreboardMenu) {
+                if(shareMenu || scoreboardMenu) {
                     ref.remove_html();
                     ref.checkNetwork(ref, "TO");
                 } else {
@@ -1618,6 +1636,16 @@ GameUi.prototype.checkNetwork = function (ref, TO_FROM) {
 };
 //----------------------------------------------------------------
 
+//Scoreboard Menu Events
+GameUi.prototype.bindEventScoreboard = function (ref) {
+    this.back = document.getElementById('backButton');
+    //Back Button
+    this.back.addEventListener('click', function() {
+        console.log("Back");
+        ref.remove_html();
+    }, false);
+};
+
 //Share Menu Events
 GameUi.prototype.bindEventShare = function (ref) {
     //Get HTML Elements
@@ -1625,6 +1653,7 @@ GameUi.prototype.bindEventShare = function (ref) {
     this.url_text = document.getElementById('urltext');
     this.link = document.getElementById('copylink');
     this.back = document.getElementById('backButton');
+
 
     //Generate QR Code
     const wd = window.innerWidth;
@@ -1856,7 +1885,6 @@ GameUi.prototype.bindEventGameSettings = function (ref) {
     }, false);
 };
 
-//General Settings
 GameUi.prototype.bindEventGeneralSettings = function (ref) {
     //Volume
     let vm = document.getElementById('volumeMinus');
@@ -2075,8 +2103,6 @@ GameUi.updateNetwork = function (ref, UPDATE) {
 };
 //--------------------------------------------------------------
 
-
-
 GameUi.prototype.update = function() {
     //--------------------------------------------------------------------
     //NETWORK
@@ -2095,8 +2121,78 @@ GameUi.prototype.update = function() {
             //Update Player Name
             let playerName = document.getElementById('playerName');
             if(playerName.textContent != myName) playerName.textContent = myName;
+
+            //Update Scoreboard
+            try {
+                let scoreboardMenu = document.querySelector('.scoreboardOptions');
+                if(scoreboardMenu) {
+                    for (let i = 0; i < GRD.playerLimit; i++) {
+                        if(GRD.Players[i] != "EMPTY") {
+                            let player_div = document.getElementById(GRD.Players[i].myName);
+                            if(player_div) {
+                                //Update Div
+                                for (let k = 0; k < GRD.Players[i].myScores.length; k++) {
+                                    let query = 'div[id = "' + (k+1) + '"]';
+                                    let score_div = player_div.querySelector(query);
+                                    if(score_div.textContent != GRD.Players[i].myScores[k]) score_div.textContent = GRD.Players[i].myScores[k];
+                                }
+                                let total_div = player_div.querySelector('div[id = "total"]');
+                                let c_total = calculatePlayerTotal(i);
+                                if(total_div.textContent != c_total) total_div.textContent = c_total;
+                            } else {
+                                //Add Player Div
+                                // <div class = "playerScore" id = "MYNAME">
+                                //     <div class = "titleText" id = "player">NAME</div>
+                                //     <div class = "scores">
+                                //         <div class = "titleText" id = "1">Hole 1</div>
+                                //         <div class = "titleText" id = "2">Hole 2</div>
+                                //         <div class = "titleText" id = "3">Hole 3</div>
+                                //         <div class = "titleText" id = "4">Hole 4</div>
+                                //     </div>
+                                //     <div class = "titleText" id = "total">Total</div>
+                                // </div>
+
+                                //playerScore
+                                let player_div = document.createElement('div');
+                                player_div.classList.add('playerScore');
+                                player_div.id = GRD.Players[i].myName;
+                                
+                                //player Title
+                                let playername_div = document.createElement('div');
+                                playername_div.classList.add('text');
+                                playername_div.id = "player";
+                                playername_div.textContent = GRD.Players[i].myName;
+                                player_div.appendChild(playername_div);
+
+                                //Player Score
+                                let scores_div = document.createElement('div');
+                                scores_div.classList.add('scores');
+                                for (let k = 0; k < GRD.Players[i].myScores.length; k++) {
+                                    let score_div = document.createElement('div');
+                                    score_div.classList.add('text');
+                                    score_div.id = k + 1;
+                                    score_div.textContent = GRD.Players[i].myScores[k];
+                                    scores_div.appendChild(score_div);
+                                }
+                                player_div.appendChild(scores_div);
+
+                                //Player Total
+                                let playertotal_div = document.createElement('div');
+                                playertotal_div.classList.add('text');
+                                playertotal_div.id = "total";
+                                playertotal_div.textContent = calculatePlayerTotal(i);
+                                player_div.appendChild(playertotal_div);
+
+                                //Append Div to HTML
+                                scoreboardMenu.appendChild(player_div);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.log(error);
+            }
         }
-            
     } catch (error) {
         //console.log(error);
         //Update Game ID
@@ -2112,6 +2208,8 @@ GameUi.prototype.update = function() {
         //Update PlayerName
         let playerName = document.getElementById('playerName');
         if(playerName.textContent != "Name") playerName.textContent = "Name";
+
+        //Update Scoreboard
     }
     //--------------------------------------------------------------------
 };
