@@ -1,23 +1,21 @@
 .joinContainer {
     position: absolute;
-    top: 16px;
-    left: 16px;
+    top: 50%;
+    left: 50%;
+    margin-right: -50%;
+    transform: translate(-50%, -50%);
     
-    background-color: #222;
-    color: #fff;
+    background-color: #BB6B00;
+    color: 38A700;
     font-weight: 100;
-    padding: 8px;
-    
-    box-shadow: 0 0 16px rgba(0, 0, 0, .3);
+    padding: 45px;
 }
 
 .joinContainer > .button {
-    float: left;
-    display: inline-block;
-    background-color: #07f;
-    padding: 0 16px;
-    font-size: 18px;
-    line-height: 32px;
+    text-align: center;
+    background-color: #38A700;
+    font-size: 30px;
+    line-height: 50px;
     border-radius: 4px;
     cursor: pointer;
     
@@ -35,6 +33,7 @@
 
 .joinContainer .textField {
     color: #ff0;
+    align-items: center;
     font-size: 24px;
 }
 

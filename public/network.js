@@ -4,6 +4,8 @@ var sockets = io(); //Socket IO Connection
 
 var lostplayers = new Map();
 
+var MAX_HOLE_COUNT = 4;
+
 //Global Variables (Across Multiplayer)
 var GRD = {
     gameId: 0,
@@ -120,18 +122,21 @@ var IO = {
                     mySocket: App.mySocketId,
                     myPosition: undefined,
                     myLinVelocity: undefined,
-                    myAngVelocity: undefined
+                    myAngVelocity: undefined,
+                    myScores: []
                 }
 
                 //Wait for Scene to load if it hasn't yet
                 function checkLoading() {
                     if(loaded) {
+                        if(MAX_HOLE_COUNT != MAX_HOLES) MAX_HOLE_COUNT = MAX_HOLES;
                         const org = {
                             x: thisPlayer.getPosition().x,
                             y: thisPlayer.getPosition().y + 2,
                             z: thisPlayer.getPosition().z
                         }
                         GRD.origin = org;
+                        GRD.Players[index].myScores = createScoreArray();
                         GRD.Players[index].myPosition = thisPlayer.getPosition();
                         GRD.Players[index].myLinVelocity = thisPlayer.rigidbody.linearVelocity;
                         GRD.Players[index].myAngVelocity = thisPlayer.rigidbody.angularVelocity;
@@ -185,7 +190,8 @@ var App = {
                         mySocket: data.socketId,
                         myPosition: ret_player.myPosition,
                         myLinVelocity: ret_player.myLinVelocity,
-                        myAngVelocity: ret_player.myAngVelocity
+                        myAngVelocity: ret_player.myAngVelocity,
+                        myScores: ret_player.myScores
                     }
                     //Destroy old memory of Lost Player
                     GRD.LostPlayers.delete(data.name);
@@ -196,7 +202,8 @@ var App = {
                         mySocket: data.socketId,
                         myPosition: GRD.origin,
                         myLinVelocity: {x: 0, y: 0, z: 0},
-                        myAngVelocity: {x: 0, y: 0, z: 0}
+                        myAngVelocity: {x: 0, y: 0, z: 0},
+                        myScores: createScoreArray()
                     }
                 }
 
@@ -425,4 +432,21 @@ function playerArrayEqual(A1, A2) {
         if(A1[i].myName != A2[i].myName) return false;
     }
     return true;
+}
+
+function calculatePlayerTotal(PlayerIndex) {
+    if(!GRD.Players[PlayerIndex].myName) {console.log("NO PLAYER AT: " + PlayerIndex); return;}
+    let total = 0;
+    for (let i = 0; i < GRD.Players[PlayerIndex].myScores.length; i++) {
+        total = total + GRD.Players[PlayerIndex].myScores[i];
+    }
+    return total;
+}
+
+function createScoreArray() {
+    let temp_array = new Array(MAX_HOLE_COUNT);
+    for (let i = 0; i < temp_array.length; i++) {
+        temp_array[i] = 0;
+    }
+    return temp_array;
 }
