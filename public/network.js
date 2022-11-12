@@ -123,6 +123,7 @@ var IO = {
                     myPosition: undefined,
                     myLinVelocity: undefined,
                     myAngVelocity: undefined,
+                    myReady: false,
                     myScores: []
                 }
 
@@ -191,7 +192,8 @@ var App = {
                         myPosition: ret_player.myPosition,
                         myLinVelocity: ret_player.myLinVelocity,
                         myAngVelocity: ret_player.myAngVelocity,
-                        myScores: ret_player.myScores
+                        myScores: ret_player.myScores,
+                        myReady: ret_player.myReady
                     }
                     //Destroy old memory of Lost Player
                     GRD.LostPlayers.delete(data.name);
@@ -203,6 +205,7 @@ var App = {
                         myPosition: GRD.origin,
                         myLinVelocity: {x: 0, y: 0, z: 0},
                         myAngVelocity: {x: 0, y: 0, z: 0},
+                        myReady: false,
                         myScores: createScoreArray()
                     }
                 }
@@ -229,6 +232,9 @@ var App = {
         sendPlayerInputREQ : function(data) {
             let input = {force: data.data, name: data.name}
             GameUpdater.prototype.applyInput(input);
+        },
+        sendPlayerReadyREQ : function(data) {
+            GRD.Players[getPlayer(data.name)].myReady = data.myReady;
         }
     },
     Player : {
@@ -398,6 +404,12 @@ function sendPlayerInput(data) {
     IO.socket.emit('sendPlayerInputREQ', packet);
 }
 
+//Send Player Ready Change
+function sendPlayerReady(READY) {
+    let packet = {gameId: GRD.gameId, myReady: READY, name: myName}
+    IO.socket.emit('sendPlayerReadyREQ', packet);
+}
+
 //Reduce the size of the players array by moving any players
 function reducePlayerArray() {
     let targetSize = GRD.playerLimit;
@@ -449,4 +461,15 @@ function createScoreArray() {
         temp_array[i] = 0;
     }
     return temp_array;
+}
+
+//Finds if there is a player that is not ready yet
+function isLobbyReady() {
+    let ready = true;
+    for (let i = 0; i < GRD.Players.length; i++) {
+        if(GRD.Players[i] != "EMPTY") {
+            if(GRD.Players[i].myReady != true) ready = false;
+        }
+    }
+    return ready;
 }

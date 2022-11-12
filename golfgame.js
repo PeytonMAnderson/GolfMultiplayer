@@ -40,6 +40,7 @@ exports.connectedToServer = function(sio, sock) {
     socket.on('requestPlayerToJoin', requestPlayerToJoin); //Host accepted player, let server add player to lobby
     socket.on('gameUpdate', gameUpdate); //Host sending new data of ENTIRE lobby to EVERYONE
     socket.on('sendPlayerInputREQ', sendPlayerInputREQ); //Player wants to apply input, send to host for processing
+    socket.on('sendPlayerReadyREQ', sendPlayerReadyREQ); //Player wants to change their ready status
 }
 
 
@@ -167,4 +168,10 @@ function sendPlayerInputREQ(data) {
     let room = RoomData.get(parseInt(data.gameId));
     if(room == undefined) return;
     this.broadcast.to(room.hostSocketId).emit('sendPlayerInputREQ', data);
+}
+
+function sendPlayerReadyREQ(data) {
+    let room = RoomData.get(parseInt(data.gameId));
+    if(room == undefined) return;
+    this.broadcast.to(room.hostSocketId).emit('sendPlayerReadyREQ', data);
 }

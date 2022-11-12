@@ -191,7 +191,7 @@ Movement.prototype.update = function(dt) {
             GRD.Players[getPlayer(myName)].myScores[GRD.holeNumber - 1]++;
         }
     } catch (error) {
-        console.log(error);
+        //console.log(error);
         this.entity.rigidbody.applyImpulse(this.force);
     }
     //-------------------------------------------------------------------------------------------------
@@ -1113,6 +1113,10 @@ var thisText; //Nameplate for each ball
 var tick = 0;
 //How many update frames before a game update is sent to players
 var tick_ratio = 4;
+//Countdown tracker
+var countdown_id;
+//Countdown length in seconds
+var countdown_length = 5;
 
 // initialize code called once per entity
 GameUpdater.prototype.initialize = function() {
@@ -1131,6 +1135,23 @@ GameUpdater.prototype.update = function(dt) {
     } catch (error) {
         //console.log(error);
         return;
+    }
+
+    //Start Countdown once everyone is ready
+    if(countdown_id != undefined) {
+        if(isLobbyReady() == false) {
+            clearInterval(countdown_id);
+            countdown_id = undefined;
+        }
+    }
+    if(isLobbyReady() == true && countdown_id == undefined) {
+        // let counter = countdown_length;
+        // countdown_id = setInterval(() => {
+        //     if(GRD)
+
+        //     GRD.timeLeft = counter;
+        //     counter--;
+        // }, 1000);
     }
 
     tick++;
@@ -1364,6 +1385,10 @@ function joinComplete() {
     });
 }
 
+
+
+
+
 // TextPosition.js
 var TextPosition = pc.createScript('textPosition');
 
@@ -1457,6 +1482,7 @@ var current_volume = 100;
 var current_sfxvolume = 100;
 var current_musicvolume = 100;
 var current_tutorial = true;
+var current_ready = false;
 
 GameUi.attributes.add('css', {type: 'asset', assetType:'css', title: 'Main CSS Asset'});
 GameUi.attributes.add('html', {type: 'asset', assetType:'html', title: 'Main HTML Asset'});
@@ -1481,10 +1507,19 @@ GameUi.prototype.initialize = function() {
     this.div.classList.add('container');
     this.div.innerHTML = this.html.resource || '';
 
+    this.div_hud = document.createElement('div');
+    this.div_hud.classList.add('HUDcontainer');
+    let ready_button = document.createElement('div');
+    ready_button.id = "readyButtonContainer";
+    ready_button.innerHTML = current_ready ? '<div class = "buttonGreen" id = "readyButton">READY</div>' :'<div class = "buttonRed" id = "readyButton">NOT READY</div>';
+    this.div_hud.appendChild(ready_button);
+    //this.div_hud.innerHTML = '<div class = "textBigLeft">SHOT: 0</div><div class = "textBigRight">2:00</div>';
+
     // append to body
     // can be appended somewhere else
     // it is recommended to have some container element
     // to prevent iOS problems of overfloating elements off the screen
+    document.body.appendChild(this.div_hud);
     document.body.appendChild(this.div);
     this.bindEvents(this);
 };
@@ -1543,6 +1578,34 @@ GameUi.prototype.bindEvents = function(ref) {
     this.scoreboard_button = document.getElementById('scoreboardButton');
     this.gameid = document.getElementById('gameid');
     this.players = document.getElementById('playercount');
+    this.readyButton = document.getElementById('readyButton');
+
+    //Ready Button
+    if(this.readyButton) {
+        this.readyButton.addEventListener('click', function() {
+
+            current_ready = current_ready ? false : true;
+            if(current_ready) {
+                this.className = "buttonGreen";
+                this.textContent = "READY";
+            } else {
+                this.className = "buttonRed";
+                this.textContent = "NOT READY";
+            }
+            //-------------------------------------------------------------------
+            //NETWORK
+            try {
+                if(GRD.hostSocketId == sockets.id) {
+                    GRD.Players[getPlayer(myName)].myReady = current_ready;
+                } else {
+                    sendPlayerReady(current_ready);
+                }
+            } catch (error) {
+                //console.log(error);
+            }
+            //-------------------------------------------------------------------
+        });
+    }
 
     //Share Button
     if(this.share_button) {
@@ -2225,4 +2288,6 @@ function generateQR(url, size) {
         console.log(error);
     }
 }
+
+
 
