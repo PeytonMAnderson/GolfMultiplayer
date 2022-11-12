@@ -1,5 +1,5 @@
 //Open Socket to server
-console.log("Connecting to network...");
+console.log("NETWORK: Connecting to network...");
 var sockets = io(); //Socket IO Connection 
 
 var lostplayers = new Map();
@@ -51,13 +51,13 @@ var IO = {
     onConnected : function(socID) {
         if(App.mySocketId != undefined && App.mySocketId != '') {
             //Another connected request is coming but I am already connected!
-            console.log("I AM ALREADY CONNECTED: " + App.mySocketId + '   ' + sockets.id);
+            console.log("NETWORK: I am already connected: " + App.mySocketId + '   ' + sockets.id);
             return;
         }
         App.mySessionId = IO.socket.io.engine.id;
         App.mySocketId = socID;
-        console.log('Connected! Socket ID: ' + App.mySocketId );
-        console.log("Creating Lobby...");
+        console.log('NETWORK: Connected! Socket ID: ' + App.mySocketId );
+        console.log("NETWORK: Creating Lobby...");
 
         //Get Room code from URL
         let path = window.location.pathname;
@@ -73,34 +73,36 @@ var IO = {
             formBody.push(encodedKey + "=" + encodedValue);
         }
         formBody = formBody.join("&");
-        fetch(window.location.href, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
-            },
-            body: formBody
-        });
-
-        //See if name exists on server
-        let newData = {gameId: parseInt(currentGameId), socketId: App.mySocketId}
-        GRD.gameId = parseInt(currentGameId);
-        try {IO.socket.emit("getName", newData);} catch (error) {console.log(error);}
+        async function postData(form) {
+            console.log('NETWORK: Sending ID...');
+            let response2 = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+                },
+                body: form
+            });
+            console.log("NETWORK: Recieved Status: " + response2.status);
+            if(response2.status == 200) {
+                //See if name exists on server
+                console.log("NETWORK: Requesting Name...");
+                let newData = {gameId: parseInt(currentGameId), socketId: App.mySocketId}
+                GRD.gameId = parseInt(currentGameId);
+                try {IO.socket.emit("getName", newData);} catch (error) {console.log(error);}
+            }
+        }
+        postData(formBody);
     },
     getNameACK : function (data) {
         //If player is joining lobby
+        console.log("NETWORK: Recieved: " + data.hostName);
         if(data.error) {
-            console.log("Lobby already created by: " + data.hostName);
-            console.log("Joining Lobby...");
-            try {
-                // let sendData = {name: myName, mySocket: App.mySocketId, gameId: GRD.gameId}
-                // IO.socket.emit('playerJoinREQ', sendData);
-            } catch (error) {
-                console.log(error);
-            }
+            console.log("NETWORK: Lobby already created by: " + data.hostName);
+            console.log("NETWORK: Waiting For Name...");
         //If player is hosting lobby
         } else {
-            console.log("Created Lobby for: " + data.gameId + ' with host: ' + data.hostName + ' who has id: ' + data.hostSocketId);
-            console.log("Joining Lobby...");
+            console.log("NETWORK: Created Lobby for: " + data.gameId + ' with host: ' + data.hostName + ' who has id: ' + data.hostSocketId);
+            console.log("NETWORK: Joining Lobby...");
             try {
                 IO.socket.emit("joinSocket", GRD.gameId); 
                 myName = data.hostName;
@@ -114,7 +116,7 @@ var IO = {
             if(data.joined) {
                 //Create Host in Lobby
                 GRD.hostSocketId = data.hostSocketId;
-                console.log("Joined " + data.hostName + "'s lobby:  " + data.gameId);
+                console.log("NETWORK: Joined " + data.hostName + "'s lobby:  " + data.gameId);
                 resetPlayersArray();
                 let index = findFirstOpen(GRD.Players);
                 GRD.Players[index] = {
@@ -148,7 +150,7 @@ var IO = {
                 }
                 checkLoading();
             } else {
-                console.log("Failed to join game!");
+                console.log("NETWORK: Failed to join game!");
             }
         } catch (error) {
             console.log(error);
@@ -169,18 +171,18 @@ var App = {
     },
     Host : {
         playerJoinREQ : function(data) {
-            console.log("Player " + data.name + " with socketId: " + data.socketId + " is trying to join my lobby " + data.gameId);
+            console.log("NETWORK: Player " + data.name + " with socketId: " + data.socketId + " is trying to join my lobby " + data.gameId);
             try {
-                if(data.name == undefined || data.name == '') {console.log("Player has no name!"); return;}
-                if(data.socketId == undefined || data.socketId == '') {console.log("Player has no SocketId!");return;}
-                if(GRD.playerCount >= GRD.playerLimit) {console.log("Room is Already full!");return;}
-                if(hasPlayer(data.name)) {console.log("Player Already in Lobby!");return;}
+                if(data.name == undefined || data.name == '') {console.log("NETWORK: Player has no name!"); return;}
+                if(data.socketId == undefined || data.socketId == '') {console.log("NETWORK: Player has no SocketId!");return;}
+                if(GRD.playerCount >= GRD.playerLimit) {console.log("NETWORK: Room is Already full!");return;}
+                if(hasPlayer(data.name)) {console.log("NETWORK: Player Already in Lobby!");return;}
                 
                 let transmitData = {mySocket: data.socketId, gameId: data.gameId}
                 sockets.emit('requestPlayerToJoin', transmitData);
 
                 let index = findFirstOpen(GRD.Players);
-                if(index == null) {console.log("Room is Already full!");return;}
+                if(index == null) {console.log("NETWORK: Room is Already full!");return;}
 
                 //Determine if incoming player is history in lobby
                 if(GRD.LostPlayers.has(data.name)) {
@@ -211,7 +213,7 @@ var App = {
                 }
 
                 //Finalize New Player joining
-                console.log("Adding " + data.name + " to lobby!");
+                console.log("NETWORK: Adding " + data.name + " to lobby!");
                 GRD.playerCount++;
                 addPlayer(GRD.Players[index]);
                 sendGameUpdate();   //Send New data to Everyone in Lobby
@@ -220,7 +222,7 @@ var App = {
         playerLeft : function(playerSocket) {
             for(let i = 0; i < GRD.Players.length; i++) {
                 if(GRD.Players[i].mySocket == playerSocket) {
-                    console.log(GRD.Players[i].myName + " has left my lobby!");
+                    console.log("NETWORK: " + GRD.Players[i].myName + " has left my lobby!");
                     GRD.playerCount--;
                     removePlayer(GRD.Players[i].myName);
                     GRD.LostPlayers.set(GRD.Players[i].myName, GRD.Players[i]);
@@ -240,17 +242,18 @@ var App = {
     Player : {
         sendName : function() {
             //Make sure I have provided a valid name
-            if(myName == 'anon' || myName == undefined || myName == '') {console.log("PLEASE PROVIDE A NAME"); return;}
-            if(App.mySocketId == undefined || App.mySocketId == '') {console.log("YOU HAVE NO SOCKET ID"); return;}
+            if(myName == 'anon' || myName == undefined || myName == '') {console.log("NETWORK: Please provide a valid name!"); return;}
+            if(App.mySocketId == undefined || App.mySocketId == '') {console.log("NETWORK: You do not have a valid socketId"); return;}
 
             //Send my name to the host to see if I can enter
+            console.log("NETWORK: Sending name...")
             let data = {name: myName, socketId: App.mySocketId, gameId: GRD.gameId}
             IO.socket.emit('playerJoinREQ', data);
         },
         gameUpdateACK : function(data) {
             //If Player and done with name, go to main scene
             if(validName == false && App.mySocketId.toString() != data.hostSocketId.toString()) {
-                console.log("NAME ACCEPTED!");
+                console.log("NETWORK: Name Accepted!");
                 validName = true;
                 joinComplete();
             }
@@ -259,7 +262,7 @@ var App = {
                 if(loaded) {
                     if(playerArrayEqual(GRD.Players, data.Players) == false) {
                         //If different ammount of players, reset players
-                        console.log("reseting players");
+                        console.log("NETWORK: Reseting Player Entities");
                         resetPlayers(data.Players);
                     } else {
                         //Update each players position
@@ -288,7 +291,7 @@ var App = {
             checkLoading();
         },
         hostLeft : function() {
-            console.log("The host has left the lobby!");
+            console.log("NETWORK: The host has left the lobby!");
             let new_location = location.origin;
             location.href = new_location;
         }
@@ -415,8 +418,8 @@ function reducePlayerArray() {
     let targetSize = GRD.playerLimit;
     let currentSize = GRD.Players.length;
     let minSize = GRD.playerCount;
-    if(targetSize < minSize) {console.log("ERROR: NEW PLAYER ARRAY SIZE TOO SMALL!"); return;}
-    if(currentSize == targetSize) {console.log("ERROR: SIZE ALREADY TARGET!"); return;}
+    if(targetSize < minSize) {console.log("NETWORK: ERROR: NEW PLAYER ARRAY SIZE TOO SMALL!"); return;}
+    if(currentSize == targetSize) {console.log("NETWORK: ERROR: SIZE ALREADY TARGET!"); return;}
     //Migrate all that need to be migrated
     for (let i = currentSize - 1; i > targetSize - 1; i--) {
         if(GRD.Players[i] != "EMPTY") {
@@ -427,15 +430,15 @@ function reducePlayerArray() {
     }
     //Remove empty slots
     GRD.Players.length = targetSize;
-    if(GRD.Players.length == targetSize) {return true;} else {console.log("ERROR: FAILED TO DECREASE"); return false;}
+    if(GRD.Players.length == targetSize) {return true;} else {console.log("NETWORK: ERROR: FAILED TO DECREASE"); return false;}
 }
 
 function increasePlayerArray() {
     let targetSize = GRD.playerLimit;
     let currentSize = GRD.Players.length;
-    if(currentSize == targetSize) {console.log("ERROR: SIZE ALREADY TARGET!"); return;}
+    if(currentSize == targetSize) {console.log("NETWORK: ERROR: SIZE ALREADY TARGET!"); return;}
     for(let i = currentSize; i < targetSize; i++) {GRD.Players[i] = "EMPTY";}
-    if(GRD.Players.length == targetSize) {return true;} else {console.log("ERROR: FAILED TO INCREASE"); return false;}
+    if(GRD.Players.length == targetSize) {return true;} else {console.log("NETWORK: ERROR: FAILED TO INCREASE"); return false;}
 }
 
 function playerArrayEqual(A1, A2) {
@@ -447,7 +450,7 @@ function playerArrayEqual(A1, A2) {
 }
 
 function calculatePlayerTotal(PlayerIndex) {
-    if(!GRD.Players[PlayerIndex].myName) {console.log("NO PLAYER AT: " + PlayerIndex); return;}
+    if(!GRD.Players[PlayerIndex].myName) {console.log("NETWORK: ERROR: NO PLAYER AT: " + PlayerIndex); return;}
     let total = 0;
     for (let i = 0; i < GRD.Players[PlayerIndex].myScores.length; i++) {
         total = total + GRD.Players[PlayerIndex].myScores[i];

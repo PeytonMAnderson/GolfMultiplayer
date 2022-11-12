@@ -122,11 +122,13 @@ Movement.prototype.update = function(dt) {
     
     //Only allow new imput if the current velocity is 0
     let vel_mag = Math.abs(this.entity.rigidbody.linearVelocity.x) + Math.abs(this.entity.rigidbody.linearVelocity.y) + Math.abs(this.entity.rigidbody.linearVelocity.z);
-        
-    if(vel_mag > 0.05 && !host_recieved) host_recieved = true;
     
     if(vel_mag < 0.05 && host_recieved) {
-        this.wait_counter++;
+
+        if(!this.wait_counter) this.wait_counter = 0;
+
+        if(this.wait_counter <= 16) this.wait_counter++;
+        
         if(this.wait_counter > 16) {
             // calculate force based on pressed keys
             if (this.app.keyboard.isPressed(pc.KEY_A)) {
@@ -147,6 +149,7 @@ Movement.prototype.update = function(dt) {
         }
     } else {
         this.wait_counter = 0;
+        if(!host_recieved) host_recieved = true;
     }
 
 
@@ -296,7 +299,7 @@ Teleport.prototype.onTriggerEnter = function (otherEntity) {
             console.error(err);
         } else {
             // Scene hierachary has successfully been loaded
-            console.log("LOADED NEW SCENE");
+            console.log("PLAYCANVAS: Loaded new scene!");
         }
     });
 };
@@ -1112,7 +1115,7 @@ var thisText; //Nameplate for each ball
 //Incremented each update cycle
 var tick = 0;
 //How many update frames before a game update is sent to players
-var tick_ratio = 4;
+var tick_ratio = 16;
 //Countdown tracker
 var countdown_id;
 //Countdown length in seconds
@@ -1123,7 +1126,7 @@ GameUpdater.prototype.initialize = function() {
     thisPlayer = this.app.root.findByName('ball');
     thisOther = this.app.root.findByName('other_ball');
     thisText = this.app.root.findByName('MyBallText');
-    console.log("Loading Complete!");
+    console.log("PLAYCANVAS: Loading Complete!");
     loaded = true;
 };
 
@@ -1217,7 +1220,7 @@ GameUpdater.prototype.initializePlayers = function (data) {
 
 //Remove Player
 GameUpdater.prototype.removePlayerBall = function (name) {
-    if(this.playerArray[name] == undefined) {console.log("BALL DOES NOT EXIST, CANNOT REMOVE"); return;}
+    if(this.playerArray[name] == undefined) {console.log("PLAYCANVAS: BALL DOES NOT EXIST, CANNOT REMOVE"); return;}
     if(this.playerArray[name].namePlate) this.playerArray[name].namePlate.destroy();
     this.playerArray[name].destroy();
     this.playerArray[name] = undefined;
@@ -1226,7 +1229,7 @@ GameUpdater.prototype.removePlayerBall = function (name) {
 //Add Player
 GameUpdater.prototype.addPlayerBall = function (data) {
     //data = {name, myPosition, myLinVelocity, myAngVelocity}
-    if(this.playerArray[data.name] != undefined) {console.log("BALL ALREADY EXISTS"); return;}
+    if(this.playerArray[data.name] != undefined) {console.log("PLAYCANVAS: BALL ALREADY EXISTS"); return;}
     this.playerArray[data.name] = this.createPlayerEnitity(data.myPosition, data.myLinVelocity, data.myAngVelocity, data.name);
 };
 
@@ -1238,7 +1241,6 @@ GameUpdater.prototype.createPlayerEnitity = function(pos, lin_vel, ang_vel, name
     var newText = thisText.clone();
     newText.focusEntity = newPlayer;
     newText.focusName = name;
-    console.log(newText);
     thisOther.getParent().addChild(newText);  //Add Copy to the scene structure
 
     newPlayer.namePlate = newText;
@@ -1253,11 +1255,9 @@ GameUpdater.prototype.updatePosition = function (data) {
     if(!data.position) return;
     if(data.name == myName) {
         //Update MY POSITION
-        //let error_dis = this.calculateError(thisPlayer, data.position);
-        //console.log(error_dis);
-        thisPlayer.rigidbody.teleport(data.position.x, data.position.y, data.position.z);
-        thisPlayer.rigidbody.angularVelocity = data.av;
-        thisPlayer.rigidbody.linearVelocity = data.lv;
+            thisPlayer.rigidbody.teleport(data.position.x, data.position.y, data.position.z);
+            thisPlayer.rigidbody.angularVelocity = data.av;
+            thisPlayer.rigidbody.linearVelocity = data.lv;
     } else {
         //Update OTHER'S POSITION
         try {
@@ -1300,13 +1300,6 @@ GameUpdater.prototype.applyInput = function(data) {
     }
 };
 
-function mul_by_c(vector, c) {
-    vector.x = vector.x * c;
-    vector.y = vector.y * c;
-    vector.z = vector.z * c;
-    return vector;
-}
-
 // join-ui.js
 // join-ui.js
 var JoinUi = pc.createScript('joinUi');
@@ -1337,7 +1330,6 @@ JoinUi.prototype.initialize = function() {
     //--------------------------------------------------------------------------
     //NETWORKING
     try {
-        console.log(GRD.hostSocketId);
         if(App.mySocketId.toString() == GRD.hostSocketId) {
             validName = true;
             joinComplete();
@@ -1356,11 +1348,8 @@ JoinUi.prototype.bindEvents = function() {
     let join_button = this.div.querySelector('.button');
 
     if(join_button) {
-        console.log("Found Button");
         
         join_button.addEventListener('click', function() {
-            console.log("Clicked Button");
-            console.log(join_input.value);
             //-----------------------------------------------------------
             //NETWORKING
             try {
@@ -1380,7 +1369,7 @@ function joinComplete() {
             console.error(err);
         } else {
             // Scene hierachary has successfully been loaded
-            console.log("LOADED NEW SCENE");
+            console.log("PLAYCANVAS: Loaded new Scene!");
         }
     });
 }
@@ -1704,7 +1693,6 @@ GameUi.prototype.bindEventScoreboard = function (ref) {
     this.back = document.getElementById('backButton');
     //Back Button
     this.back.addEventListener('click', function() {
-        console.log("Back");
         ref.remove_html();
     }, false);
 };
@@ -1727,7 +1715,7 @@ GameUi.prototype.bindEventShare = function (ref) {
 
     //Copy Link Button
     this.link.addEventListener('click', function() {
-        console.log("Copying Link");
+        console.log("PLAYCANVAS: Copying Link");
         navigator.clipboard.writeText(location.href);
         if(!document.getElementById('copied')) {
             document.getElementById('copylink').insertAdjacentHTML("afterend",
@@ -1737,7 +1725,6 @@ GameUi.prototype.bindEventShare = function (ref) {
 
     //Back Button
     this.back.addEventListener('click', function() {
-        console.log("Back");
         ref.remove_html();
     }, false);
 };
@@ -1751,21 +1738,18 @@ GameUi.prototype.bindEventSettings = function (ref) {
 
     //Game Settings Button
     this.game_button.addEventListener('click', function() {
-        console.log("Game Settings");
         ref.remove_html();
         ref.append_html(ref, ref.host_settings_html, 2);
     }, false);
 
     //General Settings Button
     this.general_button.addEventListener('click', function() {
-        console.log("General Settings");
         ref.remove_html();
         ref.append_html(ref, ref.player_settings_html, 3);
     }, false);
 
     //Back Button
     this.back.addEventListener('click', function() {
-        console.log("Back");
         ref.remove_html();
     }, false);
 };
@@ -1927,7 +1911,6 @@ GameUi.prototype.bindEventGameSettings = function (ref) {
 
     //Advanced Settings Button
     this.advanced.addEventListener('click', function() {
-        console.log("Advanced");
         let exists = document.querySelector('.advancedOption');
         let ac = document.getElementById('advancedContainer');
         if(!exists) {
@@ -1942,7 +1925,6 @@ GameUi.prototype.bindEventGameSettings = function (ref) {
     }, false);
     //Back Button
     this.back.addEventListener('click', function() {
-        console.log("Back");
         ref.remove_html();
         ref.checkNetwork(ref, "FROM");
     }, false);
@@ -2069,7 +2051,6 @@ GameUi.prototype.bindEventGeneralSettings = function (ref) {
     this.back = document.getElementById('backButton');
     //Back Button
     this.back.addEventListener('click', function() {
-        console.log("Back");
         ref.remove_html();
         ref.checkNetwork(ref, "FROM");
     }, false);
