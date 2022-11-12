@@ -1116,83 +1116,6 @@ var thisText; //Nameplate for each ball
 var tick = 0;
 //How many update frames before a game update is sent to players
 var tick_ratio = 16;
-//Countdown tracker
-var countdown_id;
-//Countdown length in seconds
-var countdown_length = 5;
-
-function loadFromCookies() {
-    if(document.cookie) {
-        let cookies = document.cookie
-                        .split(';')
-                        .map(cookie => cookie.split('='))
-                        .reduce((accumulator, [key, value]) => 
-                            ({...accumulator, [key.trim()]: decodeURIComponent(value)}), {});
-        current_volume = parseInt(cookies.volume);
-        current_sfxvolume = parseInt(cookies.sfxvolume);
-        current_musicvolume = parseInt(cookies.musicvolume);
-        current_fov = parseFloat(cookies.fov);
-        current_tutorial = cookies.tutorial;
-        current_sensitivity = parseFloat(cookies.sen);        
-        //-----------------------------------------------------------------
-        //Network
-        console.log(myName);
-        try {
-            if(myName == undefined || myName == "anon") {
-                //I currently do not have a name check cookies
-                if(cookies.name) {
-                    //If cookie exists, send name to host
-                    myName = cookies.name;
-                    console.log(myName);
-                    App.Player.sendName();
-                }
-            }
-        } catch (error) {
-            //console.log(error);
-        }
-        //-----------------------------------------------------------------
-    } else {
-        document.cookie = "volume=" + current_volume;
-        document.cookie = "sfxvolume=" + current_sfxvolume;
-        document.cookie = "musicvolume=" + current_musicvolume;
-        document.cookie = "fov=" + current_fov.toFixed(1);
-        document.cookie = "tutorial=" + current_tutorial;
-        document.cookie = "sen=" + current_sensitivity.toFixed(1);
-        //-----------------------------------------------------------------
-        //Network
-        try {
-            if(myName && GRD.gameId > 0) document.cookie = "name=" + myName + "; path=/" + GRD.gameId;
-        } catch (error) {
-            //console.log(error);
-        }
-        //-----------------------------------------------------------------
-    }
-}
-
-function updateCookies() {
-    let cookies = document.cookie
-        .split(';')
-        .map(cookie => cookie.split('='))
-        .reduce((accumulator, [key, value]) => 
-            ({...accumulator, [key.trim()]: decodeURIComponent(value)}), {});
-    if(parseInt(cookies.volume) != current_volume) document.cookie = "volume=" + current_volume;
-    if(parseInt(cookies.sfxvolume) != current_sfxvolume) document.cookie = "sfxvolume=" + current_sfxvolume;
-    if(parseInt(cookies.musicvolume) != current_musicvolume) document.cookie = "musicvolume=" + current_musicvolume;
-    if(parseFloat(cookies.fov) != current_fov.toFixed(1)) document.cookie = "fov=" + current_fov.toFixed(1);
-    if(cookies.tutorial != current_tutorial) document.cookie = "tutorial=" + current_tutorial;
-    if(parseFloat(cookies.sen) != current_sensitivity.toFixed(1)) document.cookie = "sen=" + current_sensitivity.toFixed(1);
-    //-----------------------------------------------------------------
-    //Network
-    try {
-        if(myName != undefined && myName != "anon" && parseInt(GRD.gameId) > 0) {
-            console.log(cookies.name);
-            if(!cookies.name || cookies.name != myName) document.cookie = "name=" + myName + "; path=/" + GRD.gameId;
-        }
-    } catch (error) {
-        //console.log(error);
-    }
-    //-----------------------------------------------------------------
-}
 
 // initialize code called once per entity
 GameUpdater.prototype.initialize = function() {
@@ -1213,23 +1136,6 @@ GameUpdater.prototype.update = function(dt) {
         return;
     }
 
-    //Start Countdown once everyone is ready
-    if(countdown_id != undefined) {
-        if(isLobbyReady() == false) {
-            clearInterval(countdown_id);
-            countdown_id = undefined;
-        }
-    }
-    if(isLobbyReady() == true && countdown_id == undefined) {
-        // let counter = countdown_length;
-        // countdown_id = setInterval(() => {
-        //     if(GRD)
-
-        //     GRD.timeLeft = counter;
-        //     counter--;
-        // }, 1000);
-    }
-
     //Update only once every tick_ratio ticks
     tick++;
     if(tick <= tick_ratio) return;
@@ -1237,7 +1143,7 @@ GameUpdater.prototype.update = function(dt) {
 
     //Update Cookies
     updateCookies();
-    
+
     //Run this script with network.js
     if(sockets.id == GRD.hostSocketId) {
         for(let name in this.playerArray) {
@@ -1377,6 +1283,86 @@ GameUpdater.prototype.applyInput = function(data) {
     }
 };
 
+function mul_by_c(vector, c) {
+    vector.x = vector.x * c;
+    vector.y = vector.y * c;
+    vector.z = vector.z * c;
+    return vector;
+}
+
+function loadFromCookies() {
+    if(document.cookie) {
+        let cookies = document.cookie
+                        .split(';')
+                        .map(cookie => cookie.split('='))
+                        .reduce((accumulator, [key, value]) => 
+                            ({...accumulator, [key.trim()]: decodeURIComponent(value)}), {});
+        current_volume = parseInt(cookies.volume);
+        current_sfxvolume = parseInt(cookies.sfxvolume);
+        current_musicvolume = parseInt(cookies.musicvolume);
+        current_fov = parseFloat(cookies.fov);
+        current_tutorial = cookies.tutorial;
+        current_sensitivity = parseFloat(cookies.sen);        
+        //-----------------------------------------------------------------
+        //Network
+        console.log(myName);
+        try {
+            if(myName == undefined || myName == "anon") {
+                //I currently do not have a name check cookies
+                if(cookies.name) {
+                    //If cookie exists, send name to host
+                    myName = cookies.name;
+                    console.log(myName);
+                    App.Player.sendName();
+                }
+            }
+        } catch (error) {
+            //console.log(error);
+        }
+        //-----------------------------------------------------------------
+    } else {
+        document.cookie = "volume=" + current_volume;
+        document.cookie = "sfxvolume=" + current_sfxvolume;
+        document.cookie = "musicvolume=" + current_musicvolume;
+        document.cookie = "fov=" + current_fov.toFixed(1);
+        document.cookie = "tutorial=" + current_tutorial;
+        document.cookie = "sen=" + current_sensitivity.toFixed(1);
+        //-----------------------------------------------------------------
+        //Network
+        try {
+            if(myName && GRD.gameId > 0) document.cookie = "name=" + myName + "; path=/" + GRD.gameId;
+        } catch (error) {
+            //console.log(error);
+        }
+        //-----------------------------------------------------------------
+    }
+}
+
+function updateCookies() {
+    let cookies = document.cookie
+        .split(';')
+        .map(cookie => cookie.split('='))
+        .reduce((accumulator, [key, value]) => 
+            ({...accumulator, [key.trim()]: decodeURIComponent(value)}), {});
+    if(parseInt(cookies.volume) != current_volume) document.cookie = "volume=" + current_volume;
+    if(parseInt(cookies.sfxvolume) != current_sfxvolume) document.cookie = "sfxvolume=" + current_sfxvolume;
+    if(parseInt(cookies.musicvolume) != current_musicvolume) document.cookie = "musicvolume=" + current_musicvolume;
+    if(parseFloat(cookies.fov) != current_fov.toFixed(1)) document.cookie = "fov=" + current_fov.toFixed(1);
+    if(cookies.tutorial != current_tutorial) document.cookie = "tutorial=" + current_tutorial;
+    if(parseFloat(cookies.sen) != current_sensitivity.toFixed(1)) document.cookie = "sen=" + current_sensitivity.toFixed(1);
+    //-----------------------------------------------------------------
+    //Network
+    try {
+        if(myName != undefined && myName != "anon" && parseInt(GRD.gameId) > 0) {
+            console.log(cookies.name);
+            if(!cookies.name || cookies.name != myName) document.cookie = "name=" + myName + "; path=/" + GRD.gameId;
+        }
+    } catch (error) {
+        //console.log(error);
+    }
+    //-----------------------------------------------------------------
+}
+
 // join-ui.js
 // join-ui.js
 var JoinUi = pc.createScript('joinUi');
@@ -1426,7 +1412,6 @@ JoinUi.prototype.bindEvents = function() {
     let join_button = this.div.querySelector('.button');
 
     if(join_button) {
-        
         join_button.addEventListener('click', function() {
             //-----------------------------------------------------------
             //NETWORKING
