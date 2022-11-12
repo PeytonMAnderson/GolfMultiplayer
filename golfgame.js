@@ -5,27 +5,27 @@ exports.connectedToServer = function(sio, sock) {
     io = sio;
     let socket = sock;
     socket.emit('connected', socket.id);
-    console.log("\x1B[34mGOLFGAME:  User Connected:    " + socket.id);
+    console.log("\x1B[34m   GOLFGAME:  User Connected:    " + socket.id);
     
     //A player is disconnecting...
     socket.on('disconnecting', () => {
         try {
             if(socket.rooms != undefined) {
                 let lobbies = Array.from(socket.rooms); //Get Array of rooms the disconnecting user is in [0] = personal SocketId, [1] = Game Room Id (if any)
-                console.log("\x1B[34mGOLFGAME:  User Disconnected: " + lobbies[0]);
+                console.log("\x1B[34m   GOLFGAME:  User Disconnected: " + lobbies[0]);
                 if(lobbies.length > 1) {
                     //Player is in a lobby
                     let hostOfLobby = RoomData.get(lobbies[1]); //Get the host Socket Id of the lobby the player is in
                     //If player is host, kick everyone
                     if(lobbies[0] == hostOfLobby.hostSocketId) {
                         //Player is a host, destroy lobby
-                        console.log('\x1B[34mGOLFGAME:  Host is leaving a lobby!');
+                        console.log('\x1B[34m   GOLFGAME:  Host is leaving a lobby!');
                         socket.broadcast.to(lobbies[1]).emit('hostLeft');   //Broadcast Host Left event
                         RoomData.delete(lobbies[1]);    //Delete Game Room in Server List
                         io.in(lobbies[1]).socketsLeave(lobbies[1]);   //Force everyone to leave the Game Room
                     } else {
                         //Player is just a player
-                        console.log("\x1B[34mGOLFGAME:  Player is leaving a lobby!");
+                        console.log("\x1B[34m   GOLFGAME:  Player is leaving a lobby!");
                         socket.broadcast.to(hostOfLobby.hostSocketId).emit('playerLeft', lobbies[0]);   //Send User who left to the Host
                     }
                 }
@@ -54,8 +54,8 @@ exports.getGameId = function() {
         newGameId += 100000;
         if(RoomData.has(newGameId) != true) {
             collide = false; 
-            console.log("\x1B[34mGOLFGAME:  Generated room code: " + newGameId);
-            console.log("\x1B[34mGOLFGAME: Current Opened Lobbies: ");
+            console.log("\x1B[34m   GOLFGAME:  Generated room code: " + newGameId);
+            console.log("\x1B[34m   GOLFGAME: Current Opened Lobbies: ");
             console.log("----------------------------------");
             console.log(RoomData);
             console.log("----------------------------------");
@@ -63,7 +63,7 @@ exports.getGameId = function() {
         }
         count++;
     }
-    console.log("\x1B[34mGOLFGAME:  Failed to generate room code!");
+    console.log("\x1B[34m   GOLFGAME:  Failed to generate room code!");
     return null;
 }
 
@@ -76,11 +76,11 @@ exports.setGame = function(gameId, hostName) {
             hostName: hostName
         }
         RoomData.set(gameId, serverPacket);
-        console.log("\x1B[34mGOLFGAME:  Created empty room for:  " + gameId + " with host name: " + hostName);
+        console.log("\x1B[34m   GOLFGAME:  Created empty room for:  " + gameId + " with host name: " + hostName);
         timeoutDeadLobby(gameId, 5000);
         return true;
     } else {
-        console.log("\x1B[34mGOLFGAME:  Failed to set game room " + gameId + " up with host name: " + hostName);
+        console.log("\x1B[34m   GOLFGAME:  Failed to set game room " + gameId + " up with host name: " + hostName);
         return false;
     }
 }
@@ -88,10 +88,10 @@ exports.setGame = function(gameId, hostName) {
 //Return room of gameId
 exports.getGame = function(gameId) {
     if(RoomData.has(gameId) == true) {
-        console.log("\x1B[34mGOLFGAME:  Found room for " + gameId);
+        console.log("\x1B[34m   GOLFGAME:  Found room for " + gameId);
         return RoomData.get(gameId);
     } else {
-        console.log("\x1B[34mGOLFGAME:  Failed to find room for " + gameId);
+        console.log("\x1B[34m   GOLFGAME:  Failed to find room for " + gameId);
         return null;
     }
 }
@@ -102,15 +102,15 @@ exports.createGame = function(gameId, mySocket) {
         let room = RoomData.get(gameId);
         if(room == null) return false;
         if(room.hostSocketId != 'EMPTY') {
-            console.log("\x1B[34mGOLFGAME:  Failed to add hostSocketId: " + mySocket + " to room " + gameId);
+            console.log("\x1B[34m   GOLFGAME:  Failed to add hostSocketId: " + mySocket + " to room " + gameId);
             return false;
         }
         room.hostSocketId = mySocket;
         RoomData.set(gameId, room);
-        console.log("\x1B[34mGOLFGAME:  Added hostSocketId: " + mySocket + " to room " + gameId);
+        console.log("\x1B[34m   GOLFGAME:  Added hostSocketId: " + mySocket + " to room " + gameId);
         return true;
     } catch (error) {
-        console.log("\x1B[34mGOLFGAME:  Failed to add hostSocketId: " + mySocket + " to room " + gameId);
+        console.log("\x1B[34m   GOLFGAME:  Failed to add hostSocketId: " + mySocket + " to room " + gameId);
         console.log(error);
         return false;
     }
@@ -127,19 +127,19 @@ function getName(data) {
         let room = RoomData.get(parseInt(data.gameId));
 
         if(room == undefined) {
-            console.log("\x1B[34mGOLFGAME:  Room does not exist!"); 
+            console.log("\x1B[34m   GOLFGAME:  Room does not exist!"); 
             return;
         }
 
         let retData = {error: false, gameId: data.gameId, hostSocketId: room.hostSocketId, hostName: room.hostName}
 
         if(room.hostSocketId == data.socketId) {
-            console.log("\x1B[34mGOLFGAME:  Found my room: " + data.gameId + " as host: " + data.socketId); 
+            console.log("\x1B[34m   GOLFGAME:  Found my room: " + data.gameId + " as host: " + data.socketId); 
             this.emit('getNameACK', retData);
         } else {
             //Lobby belongs to someone else
             retData.error = true;
-            console.log("\x1B[34mGOLFGAME:  Found someone's room: " + data.gameId + " as a player " + data.socketId); 
+            console.log("\x1B[34m   GOLFGAME:  Found someone's room: " + data.gameId + " as a player " + data.socketId); 
             this.emit('getNameACK', retData);
         }
     } catch (error) {console.log(error);}
@@ -154,14 +154,14 @@ function joinSocket(gameId) {
         this.join(parseInt(gameId));
         let room  = RoomData.get(parseInt(gameId));
         if(room == undefined) {
-            console.log("\x1B[34mGOLFGAME:  Room does not exist. Cannot Join Socket " + gameId); 
+            console.log("\x1B[34m   GOLFGAME:  Room does not exist. Cannot Join Socket " + gameId); 
             return;
         }
-        console.log("\x1B[34mGOLFGAME:  Sucessfully joined game room socket for: " + gameId); 
+        console.log("\x1B[34m   GOLFGAME:  Sucessfully joined game room socket for: " + gameId); 
         data = {gameId: gameId, hostSocketId: room.hostSocketId, hostName: room.hostName, joined: true}
         this.emit('joinSocketACK', data);
     } catch (error) {
-        console.log("\x1B[34mGOLFGAME:  Failed to join game room socket for: " + gameId); 
+        console.log("\x1B[34m   GOLFGAME:  Failed to join game room socket for: " + gameId); 
         console.log(error); this.emit('joinSocketACK', data);
     }
 }
@@ -170,7 +170,7 @@ function playerJoinREQ(data) {
     try {
         let room = RoomData.get(parseInt(data.gameId));
         if(room == undefined) return;
-        console.log("\x1B[34mGOLFGAME:  " + data.socketId + " is trying to connect to " + data.gameId);
+        console.log("\x1B[34m   GOLFGAME:  " + data.socketId + " is trying to connect to " + data.gameId);
         this.broadcast.to(room.hostSocketId).emit('playerJoinREQ', data);
     } catch (error) {console.log(error);}
 }
@@ -178,7 +178,7 @@ function playerJoinREQ(data) {
 function requestPlayerToJoin(data) {
     try {
         io.sockets.sockets.get(data.mySocket).join(parseInt(data.gameId));
-        console.log("\x1B[34mGOLFGAME:  Player: " + data.mySocket + " joined existing lobby: " + data.gameId);
+        console.log("\x1B[34m   GOLFGAME:  Player: " + data.mySocket + " joined existing lobby: " + data.gameId);
     } catch (error) {console.log(error);}
 }
 
@@ -204,10 +204,10 @@ function timeoutDeadLobby(gameId, TIME) {
         let room = RoomData.get(gameId);
         if(room == undefined) return;
         if(room.hostSocketId != 'EMPTY') {
-            console.log("\x1B[34mGOLFGAME:  Timeout: Room has hostSocketId. No need to destroy lobby!"); 
+            console.log("\x1B[34m   GOLFGAME:  Timeout: Room has hostSocketId. No need to destroy lobby!"); 
             return;
         } else {
-            console.log("\x1B[34mGOLFGAME:  Timeout: Room still does not have a hostSocketId after " + TIME + "ms. Destroying lobby..."); 
+            console.log("\x1B[34m   GOLFGAME:  Timeout: Room still does not have a hostSocketId after " + TIME + "ms. Destroying lobby..."); 
             RoomData.delete(gameId);
             return;
         }

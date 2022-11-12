@@ -512,7 +512,7 @@ OrbitCamera.prototype.initialize = function () {
 
     //Get Global Copy of Camera Direction for camera based movements
     camera_direction = this.entity.getRotation();
-    current_fov = this.entity.camera.fov;
+    if(!current_fov) current_fov = this.entity.camera.fov;
 
     // If we have ticked focus on start, then attempt to position the camera where it frames
     // the focused entity and move the pivot point to entity's position otherwise, set the distance
@@ -799,7 +799,7 @@ MouseInput.prototype.initialize = function() {
     this.lastPoint = new pc.Vec2();
 
 
-    current_sensitivity = this.orbitSensitivity;
+    if(!current_sensitivity) current_sensitivity = this.orbitSensitivity;
 };
 
 MouseInput.prototype.update = function() { 
@@ -1121,6 +1121,79 @@ var countdown_id;
 //Countdown length in seconds
 var countdown_length = 5;
 
+function loadFromCookies() {
+    if(document.cookie) {
+        let cookies = document.cookie
+                        .split(';')
+                        .map(cookie => cookie.split('='))
+                        .reduce((accumulator, [key, value]) => 
+                            ({...accumulator, [key.trim()]: decodeURIComponent(value)}), {});
+        current_volume = parseInt(cookies.volume);
+        current_sfxvolume = parseInt(cookies.sfxvolume);
+        current_musicvolume = parseInt(cookies.musicvolume);
+        current_fov = parseFloat(cookies.fov);
+        current_tutorial = cookies.tutorial;
+        current_sensitivity = parseFloat(cookies.sen);        
+        //-----------------------------------------------------------------
+        //Network
+        console.log(myName);
+        try {
+            if(myName == undefined || myName == "anon") {
+                //I currently do not have a name check cookies
+                if(cookies.name) {
+                    //If cookie exists, send name to host
+                    myName = cookies.name;
+                    console.log(myName);
+                    App.Player.sendName();
+                }
+            }
+        } catch (error) {
+            //console.log(error);
+        }
+        //-----------------------------------------------------------------
+    } else {
+        document.cookie = "volume=" + current_volume;
+        document.cookie = "sfxvolume=" + current_sfxvolume;
+        document.cookie = "musicvolume=" + current_musicvolume;
+        document.cookie = "fov=" + current_fov.toFixed(1);
+        document.cookie = "tutorial=" + current_tutorial;
+        document.cookie = "sen=" + current_sensitivity.toFixed(1);
+        //-----------------------------------------------------------------
+        //Network
+        try {
+            if(myName && GRD.gameId > 0) document.cookie = "name=" + myName + "; path=/" + GRD.gameId;
+        } catch (error) {
+            //console.log(error);
+        }
+        //-----------------------------------------------------------------
+    }
+}
+
+function updateCookies() {
+    let cookies = document.cookie
+        .split(';')
+        .map(cookie => cookie.split('='))
+        .reduce((accumulator, [key, value]) => 
+            ({...accumulator, [key.trim()]: decodeURIComponent(value)}), {});
+    if(parseInt(cookies.volume) != current_volume) document.cookie = "volume=" + current_volume;
+    if(parseInt(cookies.sfxvolume) != current_sfxvolume) document.cookie = "sfxvolume=" + current_sfxvolume;
+    if(parseInt(cookies.musicvolume) != current_musicvolume) document.cookie = "musicvolume=" + current_musicvolume;
+    if(parseFloat(cookies.fov) != current_fov.toFixed(1)) document.cookie = "fov=" + current_fov.toFixed(1);
+    if(cookies.tutorial != current_tutorial) document.cookie = "tutorial=" + current_tutorial;
+    if(parseFloat(cookies.sen) != current_sensitivity.toFixed(1)) document.cookie = "sen=" + current_sensitivity.toFixed(1);
+    //-----------------------------------------------------------------
+    //Network
+    try {
+        if(myName != undefined && myName != "anon" && parseInt(GRD.gameId) > 0) {
+            console.log(cookies.name);
+            if(!cookies.name || cookies.name != myName) document.cookie = "name=" + myName + "; path=/" + GRD.gameId;
+        }
+    } catch (error) {
+        //console.log(error);
+    }
+    //-----------------------------------------------------------------
+}
+
 // initialize code called once per entity
 GameUpdater.prototype.initialize = function() {
     thisPlayer = this.app.root.findByName('ball');
@@ -1157,10 +1230,14 @@ GameUpdater.prototype.update = function(dt) {
         // }, 1000);
     }
 
+    //Update only once every tick_ratio ticks
     tick++;
     if(tick <= tick_ratio) return;
     tick = 0;
 
+    //Update Cookies
+    updateCookies();
+    
     //Run this script with network.js
     if(sockets.id == GRD.hostSocketId) {
         for(let name in this.playerArray) {
@@ -1330,6 +1407,7 @@ JoinUi.prototype.initialize = function() {
     //--------------------------------------------------------------------------
     //NETWORKING
     try {
+        loadFromCookies();
         if(App.mySocketId.toString() == GRD.hostSocketId) {
             validName = true;
             joinComplete();
@@ -2015,36 +2093,36 @@ GameUi.prototype.bindEventGeneralSettings = function (ref) {
     let fovm = document.getElementById('fovMinus');
     let fovt = document.getElementById('currentFov');
     let fovp = document.getElementById('fovPlus');
-    fovt.textContent = current_fov.toFixed(1);
+    fovt.textContent = parseFloat(current_fov).toFixed(1);
     fovm.addEventListener('click', function() {
         let c_fov = parseFloat(fovt.textContent);
         c_fov = c_fov - 5;
         current_fov = c_fov;
-        fovt.textContent = current_fov.toFixed(1);
+        fovt.textContent = parseFloat(current_fov).toFixed(1);
     }, false);
     fovp.addEventListener('click', function() {
         let c_fov = parseFloat(fovt.textContent);
         c_fov = c_fov + 5;
         current_fov = c_fov;
-        fovt.textContent = current_fov.toFixed(1);
+        fovt.textContent = parseFloat(current_fov).toFixed(1);
     }, false);
 
     //Sensitivity
     let senm = document.getElementById('senMinus');
     let sent = document.getElementById('currentSen');
     let senp = document.getElementById('senPlus');
-    sent.textContent = current_sensitivity.toFixed(1);
+    sent.textContent = parseFloat(current_sensitivity).toFixed(1);
     senm.addEventListener('click', function() {
         let c_sen = parseFloat(sent.textContent);
         c_sen = c_sen - 0.1;
         current_sensitivity = c_sen;
-        sent.textContent = current_sensitivity.toFixed(1);
+        sent.textContent = parseFloat(current_sensitivity).toFixed(1);
     }, false);
     senp.addEventListener('click', function() {
         let c_sen = parseFloat(sent.textContent);
         c_sen = c_sen + 0.1;
         current_sensitivity = c_sen;
-        sent.textContent = current_sensitivity.toFixed(1);
+        sent.textContent = parseFloat(current_sensitivity).toFixed(1);
     }, false);
 
     //Get HTML Elements

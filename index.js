@@ -36,7 +36,7 @@ app.get('/:query', (req, res) => {
             break;
         default:
             try {
-                console.log('\x1B[33mSERVER: Getting Game for ' + req.params.query);
+                console.log('\x1B[33m   SERVER: Getting Game for ' + req.params.query);
                 let get_name = gg.getGame(parseInt(req.params.query));
                 if(get_name == 'NULL' || get_name == null) {
                     res.status(404).send("Game Room Not Found");
@@ -62,9 +62,9 @@ app.post('/lobby', (req, res) => {
             //Create empty lobby
             let name = req.body.createPlayerName;
             let game = gg.getGameId();
-            if(name == null || name == "Anon") {console.log("\x1B[33mSERVER: ERROR: PROVIDE VALID NAME"); return;}
-            if(game == null) {console.log("\x1B[33mSERVER: ERROR: NEW GAME ID IS NULL"); return;}
-            if(gg.setGame(game, name) == false) {console.log("\x1B[33mSERVER: ERROR: UNABLE TO SET GAME ID"); return;}
+            if(name == null || name == "Anon") {console.log("\x1B[33m   SERVER: ERROR: PROVIDE VALID NAME"); return;}
+            if(game == null) {console.log("\x1B[33m SERVER: ERROR: NEW GAME ID IS NULL"); return;}
+            if(gg.setGame(game, name) == false) {console.log("\x1B[33m  SERVER: ERROR: UNABLE TO SET GAME ID"); return;}
             res.redirect('/' + game);
             return;
         } else {
@@ -84,25 +84,26 @@ app.post('/:id', (req, res) => {
         const gid = parseInt(req.params.id);
         const hid = req.body.mySocketId;
 
-        console.log('\x1B[33mSERVER: Getting Lobby with id: ' + gid + ' to add host id: ' + hid);
+        console.log('\x1B[33m   SERVER: Getting Lobby with id: ' + gid + ' to add host id: ' + hid);
 
         let lobby_on_file = gg.getGame(gid);
 
         if(lobby_on_file == null) {
-            console.log("\x1B[33mSERVER: ERROR: LOBBY NOT FOUND!"); 
+            console.log("\x1B[33m   SERVER: ERROR: LOBBY NOT FOUND!"); 
             res.status(404).send("Lobby Not Found!");
+            res.redirect('/create');
             return;
         }
 
         if(lobby_on_file.hostSocketId == 'EMPTY') {
             if(gg.createGame(gid, hid) == true) {
-                console.log('\x1B[33mSERVER: HostSocketId was empty. Sucessfully created new game!');
+                console.log('\x1B[33m   SERVER: HostSocketId was empty. Sucessfully created new game!');
                 res.status(200).send("Success");
             } else {
                 res.status(500).send("Unable to create Game Room with host ID");
             }
         } else {
-            console.log('\x1B[33mSERVER: HostSocketId already populated. Trying as player instead.');
+            console.log('\x1B[33m   SERVER: HostSocketId already populated. Trying as player instead.');
             res.status(200).send("Success");
         }
     } catch (error) {
@@ -121,7 +122,7 @@ io.on('connection', (socket) => {
 let port = process.env.PORT || 3000;
 let address = process.env.ADDRESS || "0.0.0.0";
 server.listen(port , address, () => {
-    console.log('\x1B[33mSERVER: listening on http://' + address + ':' + port);
+    console.log('\x1B[33m   SERVER: listening on http://' + address + ':' + port);
 });
 
 
