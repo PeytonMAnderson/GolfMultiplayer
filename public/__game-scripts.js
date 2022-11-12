@@ -122,11 +122,13 @@ Movement.prototype.update = function(dt) {
     
     //Only allow new imput if the current velocity is 0
     let vel_mag = Math.abs(this.entity.rigidbody.linearVelocity.x) + Math.abs(this.entity.rigidbody.linearVelocity.y) + Math.abs(this.entity.rigidbody.linearVelocity.z);
-        
-    if(vel_mag > 0.05 && !host_recieved) host_recieved = true;
     
     if(vel_mag < 0.05 && host_recieved) {
-        this.wait_counter++;
+
+        if(!this.wait_counter) this.wait_counter = 0;
+
+        if(this.wait_counter <= 16) this.wait_counter++;
+        
         if(this.wait_counter > 16) {
             // calculate force based on pressed keys
             if (this.app.keyboard.isPressed(pc.KEY_A)) {
@@ -147,6 +149,7 @@ Movement.prototype.update = function(dt) {
         }
     } else {
         this.wait_counter = 0;
+        if(!host_recieved) host_recieved = true;
     }
 
 
@@ -191,7 +194,7 @@ Movement.prototype.update = function(dt) {
             GRD.Players[getPlayer(myName)].myScores[GRD.holeNumber - 1]++;
         }
     } catch (error) {
-        console.log(error);
+        //console.log(error);
         this.entity.rigidbody.applyImpulse(this.force);
     }
     //-------------------------------------------------------------------------------------------------
@@ -296,7 +299,7 @@ Teleport.prototype.onTriggerEnter = function (otherEntity) {
             console.error(err);
         } else {
             // Scene hierachary has successfully been loaded
-            console.log("LOADED NEW SCENE");
+            console.log("PLAYCANVAS: Loaded new scene!");
         }
     });
 };
@@ -1112,14 +1115,18 @@ var thisText; //Nameplate for each ball
 //Incremented each update cycle
 var tick = 0;
 //How many update frames before a game update is sent to players
-var tick_ratio = 4;
+var tick_ratio = 16;
+//Countdown tracker
+var countdown_id;
+//Countdown length in seconds
+var countdown_length = 5;
 
 // initialize code called once per entity
 GameUpdater.prototype.initialize = function() {
     thisPlayer = this.app.root.findByName('ball');
     thisOther = this.app.root.findByName('other_ball');
     thisText = this.app.root.findByName('MyBallText');
-    console.log("Loading Complete!");
+    console.log("PLAYCANVAS: Loading Complete!");
     loaded = true;
 };
 
@@ -1131,6 +1138,23 @@ GameUpdater.prototype.update = function(dt) {
     } catch (error) {
         //console.log(error);
         return;
+    }
+
+    //Start Countdown once everyone is ready
+    if(countdown_id != undefined) {
+        if(isLobbyReady() == false) {
+            clearInterval(countdown_id);
+            countdown_id = undefined;
+        }
+    }
+    if(isLobbyReady() == true && countdown_id == undefined) {
+        // let counter = countdown_length;
+        // countdown_id = setInterval(() => {
+        //     if(GRD)
+
+        //     GRD.timeLeft = counter;
+        //     counter--;
+        // }, 1000);
     }
 
     tick++;
@@ -1196,7 +1220,7 @@ GameUpdater.prototype.initializePlayers = function (data) {
 
 //Remove Player
 GameUpdater.prototype.removePlayerBall = function (name) {
-    if(this.playerArray[name] == undefined) {console.log("BALL DOES NOT EXIST, CANNOT REMOVE"); return;}
+    if(this.playerArray[name] == undefined) {console.log("PLAYCANVAS: BALL DOES NOT EXIST, CANNOT REMOVE"); return;}
     if(this.playerArray[name].namePlate) this.playerArray[name].namePlate.destroy();
     this.playerArray[name].destroy();
     this.playerArray[name] = undefined;
@@ -1205,7 +1229,7 @@ GameUpdater.prototype.removePlayerBall = function (name) {
 //Add Player
 GameUpdater.prototype.addPlayerBall = function (data) {
     //data = {name, myPosition, myLinVelocity, myAngVelocity}
-    if(this.playerArray[data.name] != undefined) {console.log("BALL ALREADY EXISTS"); return;}
+    if(this.playerArray[data.name] != undefined) {console.log("PLAYCANVAS: BALL ALREADY EXISTS"); return;}
     this.playerArray[data.name] = this.createPlayerEnitity(data.myPosition, data.myLinVelocity, data.myAngVelocity, data.name);
 };
 
@@ -1217,7 +1241,6 @@ GameUpdater.prototype.createPlayerEnitity = function(pos, lin_vel, ang_vel, name
     var newText = thisText.clone();
     newText.focusEntity = newPlayer;
     newText.focusName = name;
-    console.log(newText);
     thisOther.getParent().addChild(newText);  //Add Copy to the scene structure
 
     newPlayer.namePlate = newText;
@@ -1232,11 +1255,9 @@ GameUpdater.prototype.updatePosition = function (data) {
     if(!data.position) return;
     if(data.name == myName) {
         //Update MY POSITION
-        //let error_dis = this.calculateError(thisPlayer, data.position);
-        //console.log(error_dis);
-        thisPlayer.rigidbody.teleport(data.position.x, data.position.y, data.position.z);
-        thisPlayer.rigidbody.angularVelocity = data.av;
-        thisPlayer.rigidbody.linearVelocity = data.lv;
+            thisPlayer.rigidbody.teleport(data.position.x, data.position.y, data.position.z);
+            thisPlayer.rigidbody.angularVelocity = data.av;
+            thisPlayer.rigidbody.linearVelocity = data.lv;
     } else {
         //Update OTHER'S POSITION
         try {
@@ -1279,13 +1300,6 @@ GameUpdater.prototype.applyInput = function(data) {
     }
 };
 
-function mul_by_c(vector, c) {
-    vector.x = vector.x * c;
-    vector.y = vector.y * c;
-    vector.z = vector.z * c;
-    return vector;
-}
-
 // join-ui.js
 // join-ui.js
 var JoinUi = pc.createScript('joinUi');
@@ -1316,7 +1330,6 @@ JoinUi.prototype.initialize = function() {
     //--------------------------------------------------------------------------
     //NETWORKING
     try {
-        console.log(GRD.hostSocketId);
         if(App.mySocketId.toString() == GRD.hostSocketId) {
             validName = true;
             joinComplete();
@@ -1335,11 +1348,8 @@ JoinUi.prototype.bindEvents = function() {
     let join_button = this.div.querySelector('.button');
 
     if(join_button) {
-        console.log("Found Button");
         
         join_button.addEventListener('click', function() {
-            console.log("Clicked Button");
-            console.log(join_input.value);
             //-----------------------------------------------------------
             //NETWORKING
             try {
@@ -1359,10 +1369,14 @@ function joinComplete() {
             console.error(err);
         } else {
             // Scene hierachary has successfully been loaded
-            console.log("LOADED NEW SCENE");
+            console.log("PLAYCANVAS: Loaded new Scene!");
         }
     });
 }
+
+
+
+
 
 // TextPosition.js
 var TextPosition = pc.createScript('textPosition');
@@ -1457,6 +1471,7 @@ var current_volume = 100;
 var current_sfxvolume = 100;
 var current_musicvolume = 100;
 var current_tutorial = true;
+var current_ready = false;
 
 GameUi.attributes.add('css', {type: 'asset', assetType:'css', title: 'Main CSS Asset'});
 GameUi.attributes.add('html', {type: 'asset', assetType:'html', title: 'Main HTML Asset'});
@@ -1481,10 +1496,19 @@ GameUi.prototype.initialize = function() {
     this.div.classList.add('container');
     this.div.innerHTML = this.html.resource || '';
 
+    this.div_hud = document.createElement('div');
+    this.div_hud.classList.add('HUDcontainer');
+    let ready_button = document.createElement('div');
+    ready_button.id = "readyButtonContainer";
+    ready_button.innerHTML = current_ready ? '<div class = "buttonGreen" id = "readyButton">READY</div>' :'<div class = "buttonRed" id = "readyButton">NOT READY</div>';
+    this.div_hud.appendChild(ready_button);
+    //this.div_hud.innerHTML = '<div class = "textBigLeft">SHOT: 0</div><div class = "textBigRight">2:00</div>';
+
     // append to body
     // can be appended somewhere else
     // it is recommended to have some container element
     // to prevent iOS problems of overfloating elements off the screen
+    document.body.appendChild(this.div_hud);
     document.body.appendChild(this.div);
     this.bindEvents(this);
 };
@@ -1543,6 +1567,34 @@ GameUi.prototype.bindEvents = function(ref) {
     this.scoreboard_button = document.getElementById('scoreboardButton');
     this.gameid = document.getElementById('gameid');
     this.players = document.getElementById('playercount');
+    this.readyButton = document.getElementById('readyButton');
+
+    //Ready Button
+    if(this.readyButton) {
+        this.readyButton.addEventListener('click', function() {
+
+            current_ready = current_ready ? false : true;
+            if(current_ready) {
+                this.className = "buttonGreen";
+                this.textContent = "READY";
+            } else {
+                this.className = "buttonRed";
+                this.textContent = "NOT READY";
+            }
+            //-------------------------------------------------------------------
+            //NETWORK
+            try {
+                if(GRD.hostSocketId == sockets.id) {
+                    GRD.Players[getPlayer(myName)].myReady = current_ready;
+                } else {
+                    sendPlayerReady(current_ready);
+                }
+            } catch (error) {
+                //console.log(error);
+            }
+            //-------------------------------------------------------------------
+        });
+    }
 
     //Share Button
     if(this.share_button) {
@@ -1641,7 +1693,6 @@ GameUi.prototype.bindEventScoreboard = function (ref) {
     this.back = document.getElementById('backButton');
     //Back Button
     this.back.addEventListener('click', function() {
-        console.log("Back");
         ref.remove_html();
     }, false);
 };
@@ -1664,7 +1715,7 @@ GameUi.prototype.bindEventShare = function (ref) {
 
     //Copy Link Button
     this.link.addEventListener('click', function() {
-        console.log("Copying Link");
+        console.log("PLAYCANVAS: Copying Link");
         navigator.clipboard.writeText(location.href);
         if(!document.getElementById('copied')) {
             document.getElementById('copylink').insertAdjacentHTML("afterend",
@@ -1674,7 +1725,6 @@ GameUi.prototype.bindEventShare = function (ref) {
 
     //Back Button
     this.back.addEventListener('click', function() {
-        console.log("Back");
         ref.remove_html();
     }, false);
 };
@@ -1688,21 +1738,18 @@ GameUi.prototype.bindEventSettings = function (ref) {
 
     //Game Settings Button
     this.game_button.addEventListener('click', function() {
-        console.log("Game Settings");
         ref.remove_html();
         ref.append_html(ref, ref.host_settings_html, 2);
     }, false);
 
     //General Settings Button
     this.general_button.addEventListener('click', function() {
-        console.log("General Settings");
         ref.remove_html();
         ref.append_html(ref, ref.player_settings_html, 3);
     }, false);
 
     //Back Button
     this.back.addEventListener('click', function() {
-        console.log("Back");
         ref.remove_html();
     }, false);
 };
@@ -1864,7 +1911,6 @@ GameUi.prototype.bindEventGameSettings = function (ref) {
 
     //Advanced Settings Button
     this.advanced.addEventListener('click', function() {
-        console.log("Advanced");
         let exists = document.querySelector('.advancedOption');
         let ac = document.getElementById('advancedContainer');
         if(!exists) {
@@ -1879,7 +1925,6 @@ GameUi.prototype.bindEventGameSettings = function (ref) {
     }, false);
     //Back Button
     this.back.addEventListener('click', function() {
-        console.log("Back");
         ref.remove_html();
         ref.checkNetwork(ref, "FROM");
     }, false);
@@ -2006,7 +2051,6 @@ GameUi.prototype.bindEventGeneralSettings = function (ref) {
     this.back = document.getElementById('backButton');
     //Back Button
     this.back.addEventListener('click', function() {
-        console.log("Back");
         ref.remove_html();
         ref.checkNetwork(ref, "FROM");
     }, false);
@@ -2225,4 +2269,6 @@ function generateQR(url, size) {
         console.log(error);
     }
 }
+
+
 
