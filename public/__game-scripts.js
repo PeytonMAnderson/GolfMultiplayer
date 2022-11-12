@@ -1324,9 +1324,9 @@ function loadFromCookies() {
         document.cookie = "volume=" + current_volume;
         document.cookie = "sfxvolume=" + current_sfxvolume;
         document.cookie = "musicvolume=" + current_musicvolume;
-        document.cookie = "fov=" + current_fov.toFixed(1);
+        document.cookie = "fov=" + current_fov;
         document.cookie = "tutorial=" + current_tutorial;
-        document.cookie = "sen=" + current_sensitivity.toFixed(1);
+        document.cookie = "sen=" + current_sensitivity;
         //-----------------------------------------------------------------
         //Network
         try {
@@ -1354,7 +1354,6 @@ function updateCookies() {
     //Network
     try {
         if(myName != undefined && myName != "anon" && parseInt(GRD.gameId) > 0) {
-            console.log(cookies.name);
             if(!cookies.name || cookies.name != myName) document.cookie = "name=" + myName + "; path=/" + GRD.gameId;
         }
     } catch (error) {
