@@ -1,23 +1,26 @@
 .joinContainer {
     position: absolute;
-    top: 50%;
+    top: 60%;
     left: 50%;
     margin-right: -50%;
     transform: translate(-50%, -50%);
+    border-radius: 25px;
+    background: #BB6B00;
+    padding: 20px;
+    width: 600px;
+    height: 200px;
     
-    background-color: #BB6B00;
-    color: 38A700;
     font-weight: 100;
-    padding: 45px;
+    padding: 60px;
 }
 
 .joinContainer > .button {
     text-align: center;
-    background-color: #38A700;
     font-size: 30px;
-    line-height: 50px;
+    line-height: 40px;
     border-radius: 4px;
     cursor: pointer;
+    background-color: #69a14d;
     
     -webkit-touch-callout: none;
     -webkit-user-select: none;
@@ -32,11 +35,15 @@
 }
 
 .joinContainer .textField {
-    color: #ff0;
-    align-items: center;
-    font-size: 24px;
+    color: #251f23;
+    margin:0 auto;
+    width:185px;
 }
 
 .joinContainer > .text {
-    margin-top: 52px;
+    margin-top: 30px;
+    color: #69a14d;
+    font-size: xx-large;
+    text-align: center;
+
 }
