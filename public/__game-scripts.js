@@ -50,6 +50,7 @@ var current_speed;
 var current_gravity;
 var current_collision;
 var host_recieved = true;
+var ballSelected = false;
 
 function deg_to_rad(degrees) {
     return degrees * (Math.PI/180);
@@ -74,6 +75,7 @@ Movement.prototype.initialize = function() {
     current_friction = this.entity.rigidbody.friction;
     current_speed = this.speed;
     current_gravity = this.app.systems.rigidbody.gravity;
+    mouseIsHeld = false;
 
     try {
         GameUi.updateNetwork(this, "GRAVITY");
@@ -121,30 +123,26 @@ Movement.prototype.update = function(dt) {
     }
     
     //Only allow new imput if the current velocity is 0
+
+
     let vel_mag = Math.abs(this.entity.rigidbody.linearVelocity.x) + Math.abs(this.entity.rigidbody.linearVelocity.y) + Math.abs(this.entity.rigidbody.linearVelocity.z);
     
+   
+    const inputPressed = isTouchPressed || isMousePressed;
+
+    let pickedBall = pickedEntity == this.entity;
+
+    
+    if (inputPressed && pickedBall && vel_mag < 0.02) {ballSelected = true;} else {ballSelected = false;}
+
+    if(vel_mag > 0.05 && !host_recieved) host_recieved = true;
     if(vel_mag < 0.05 && host_recieved) {
-
-        if(!this.wait_counter) this.wait_counter = 0;
-
-        if(this.wait_counter <= 16) this.wait_counter++;
-        
+        this.wait_counter++;
         if(this.wait_counter > 16) {
-            // calculate force based on pressed keys
-            if (this.app.keyboard.isPressed(pc.KEY_A)) {
-                forceX = -this.speed;
-            } 
-
-            if (this.app.keyboard.isPressed(pc.KEY_D)) {
-                forceX += this.speed;
-            }
-
-            if (this.app.keyboard.isPressed(pc.KEY_W)) {
+            //Add force if ball is was selected and released
+            if(pickedBall && inputPressed == false) {
                 forceZ = -this.speed;
-            } 
-
-            if (this.app.keyboard.isPressed(pc.KEY_S)) {
-                forceZ += this.speed;
+                pickedEntity = undefined;
             }
         }
     } else {
@@ -190,8 +188,13 @@ Movement.prototype.update = function(dt) {
             host_recieved = false;
             sendPlayerInput(this.force);
         } else {
+            let playerid = getPlayer(myName);
+            //First hit of the hole
+            if(GRD.Players[playerid].myReady == true && GRD.Players[playerid].myScores[GRD.holeNumber - 1] == 0) {
+                GRD.Players[playerid].myReady = false;
+            }
             this.entity.rigidbody.applyImpulse(this.force);
-            GRD.Players[getPlayer(myName)].myScores[GRD.holeNumber - 1]++;
+            GRD.Players[playerid].myScores[GRD.holeNumber - 1]++;
         }
     } catch (error) {
         //console.log(error);
@@ -218,7 +221,7 @@ Teleportable.prototype.update = function(dt) {
     // teleport to the last location
     var pos = this.entity.getPosition();
     if (!this.enabled) return;
-    if (pos.y < 0) {this.teleport(this.lastTeleportFrom, this.lastTeleportTo);}
+    //if (pos.y < 0) {this.teleport(this.lastTeleportFrom, this.lastTeleportTo);}
 };
 
 
@@ -503,7 +506,10 @@ OrbitCamera.prototype.initialize = function () {
     // Preset the camera
     this._yaw = this._calcYaw(cameraQuat);
     this._pitch = this._clampPitchAngle(this._calcPitch(cameraQuat, this._yaw));
+
+    
     this.entity.setLocalEulerAngles(this._pitch, this._yaw, 0);
+    
 
     this._distance = 0;
 
@@ -512,7 +518,7 @@ OrbitCamera.prototype.initialize = function () {
 
     //Get Global Copy of Camera Direction for camera based movements
     camera_direction = this.entity.getRotation();
-    if(!current_fov) current_fov = this.entity.camera.fov;
+    current_fov = this.entity.camera.fov;
 
     // If we have ticked focus on start, then attempt to position the camera where it frames
     // the focused entity and move the pivot point to entity's position otherwise, set the distance
@@ -629,14 +635,17 @@ OrbitCamera.prototype.update = function(dt) {
 
 OrbitCamera.prototype._updatePosition = function () {
     // Work out the camera position based on the pivot point, pitch, yaw and distance
-    this.entity.setLocalPosition(0,0,0);
-    this.entity.setLocalEulerAngles(this._pitch, this._yaw, 0);
 
-    var position = this.entity.getPosition();
-    position.copy(this.entity.forward);
-    position.scale(-this._distance);
-    position.add(this.pivotPoint);
-    this.entity.setPosition(position);
+    if (ballSelected == false) {
+        this.entity.setLocalPosition(0,0,0);
+        this.entity.setLocalEulerAngles(this._pitch, this._yaw, 0);
+
+        var position = this.entity.getPosition();
+        position.copy(this.entity.forward);
+        position.scale(-this._distance);
+        position.add(this.pivotPoint);
+        this.entity.setPosition(position);
+    }
 };
 
 
@@ -744,7 +753,9 @@ OrbitCamera.prototype._calcPitch = function(quat, yaw) {
 
 // mouseInput.js
 var MouseInput = pc.createScript('mouseInput');
+
 var current_sensitivity;
+var isMousePressed = false;
 
 MouseInput.attributes.add('orbitSensitivity', {
     type: 'number', 
@@ -834,6 +845,10 @@ MouseInput.prototype.pan = function(screenPoint) {
 
 
 MouseInput.prototype.onMouseDown = function (event) {
+    
+    //Edit isMousePressed
+    isMousePressed = true;
+
     switch (event.button) {
         case pc.MOUSEBUTTON_LEFT: {
             this.lookButtonDown = true;
@@ -848,6 +863,10 @@ MouseInput.prototype.onMouseDown = function (event) {
 
 
 MouseInput.prototype.onMouseUp = function (event) {
+
+    //Edit isMousePressed
+    isMousePressed = false;
+
     switch (event.button) {
         case pc.MOUSEBUTTON_LEFT: {
             this.lookButtonDown = false;
@@ -863,15 +882,16 @@ MouseInput.prototype.onMouseUp = function (event) {
 
 MouseInput.prototype.onMouseMove = function (event) {    
     var mouse = pc.app.mouse;
-    if (this.lookButtonDown) {
-        this.orbitCamera.pitch -= event.dy * this.orbitSensitivity;
-        this.orbitCamera.yaw -= event.dx * this.orbitSensitivity;
-        
-    } else if (this.panButtonDown) {
-        this.pan(event);   
+    if (ballSelected == false) {
+        if (this.lookButtonDown) {
+            this.orbitCamera.pitch -= event.dy * this.orbitSensitivity;
+            this.orbitCamera.yaw -= event.dx * this.orbitSensitivity;
+            
+        } else if (this.panButtonDown) {
+            this.pan(event);   
+        }
+        this.lastPoint.set(event.x, event.y);
     }
-    
-    this.lastPoint.set(event.x, event.y);
 };
 
 
@@ -888,6 +908,8 @@ MouseInput.prototype.onMouseOut = function (event) {
 
 // touchInput.js
 var TouchInput = pc.createScript('touchInput');
+
+var isTouchPressed = false;
 
 TouchInput.attributes.add('orbitSensitivity', {
     type: 'number', 
@@ -918,6 +940,11 @@ TouchInput.prototype.initialize = function() {
         this.app.touch.on(pc.EVENT_TOUCHSTART, this.onTouchStartEndCancel, this);
         this.app.touch.on(pc.EVENT_TOUCHEND, this.onTouchStartEndCancel, this);
         this.app.touch.on(pc.EVENT_TOUCHCANCEL, this.onTouchStartEndCancel, this);
+
+        //Edit isTouchPressed
+        this.app.touch.on(pc.EVENT_TOUCHSTART, () => {isTouchPressed = true;}, this);
+        this.app.touch.on(pc.EVENT_TOUCHMOVE, () => {isTouchPressed = true;}, this);
+        this.app.touch.on(pc.EVENT_TOUCHEND, () => {isTouchPressed = false;}, this);
         
         this.app.touch.on(pc.EVENT_TOUCHMOVE, this.onTouchMove, this);
         
@@ -1005,26 +1032,28 @@ TouchInput.prototype.onTouchMove = function(event) {
     // We only care about the first touch for camera rotation. Work out the difference moved since the last event
     // and use that to update the camera target position 
     var touches = event.touches;
-    if (touches.length == 1) {
-        var touch = touches[0];
+    if (ballSelected == false) {
+        if (touches.length == 1) {
+            var touch = touches[0];
+            
+            this.orbitCamera.pitch -= (touch.y - this.lastTouchPoint.y) * this.orbitSensitivity;
+            this.orbitCamera.yaw -= (touch.x - this.lastTouchPoint.x) * this.orbitSensitivity;
+            
+            this.lastTouchPoint.set(touch.x, touch.y);
         
-        this.orbitCamera.pitch -= (touch.y - this.lastTouchPoint.y) * this.orbitSensitivity;
-        this.orbitCamera.yaw -= (touch.x - this.lastTouchPoint.x) * this.orbitSensitivity;
-        
-        this.lastTouchPoint.set(touch.x, touch.y);
-    
-    } else if (touches.length == 2) {
-        // Calculate the difference in pinch distance since the last event
-        var currentPinchDistance = this.getPinchDistance(touches[0], touches[1]);
-        var diffInPinchDistance = currentPinchDistance - this.lastPinchDistance;
-        this.lastPinchDistance = currentPinchDistance;
-                
-        this.orbitCamera.distance -= (diffInPinchDistance * this.distanceSensitivity * 0.1) * (this.orbitCamera.distance * 0.1);
-        
-        // Calculate pan difference
-        this.calcMidPoint(touches[0], touches[1], pinchMidPoint);
-        this.pan(pinchMidPoint);
-        this.lastPinchMidPoint.copy(pinchMidPoint);
+        } else if (touches.length == 2) {
+            // Calculate the difference in pinch distance since the last event
+            var currentPinchDistance = this.getPinchDistance(touches[0], touches[1]);
+            var diffInPinchDistance = currentPinchDistance - this.lastPinchDistance;
+            this.lastPinchDistance = currentPinchDistance;
+                    
+            this.orbitCamera.distance -= (diffInPinchDistance * this.distanceSensitivity * 0.1) * (this.orbitCamera.distance * 0.1);
+            
+            // Calculate pan difference
+            this.calcMidPoint(touches[0], touches[1], pinchMidPoint);
+            this.pan(pinchMidPoint);
+            this.lastPinchMidPoint.copy(pinchMidPoint);
+        }
     }
 };
 
@@ -1117,6 +1146,10 @@ var tick = 0;
 //How many update frames before a game update is sent to players
 var tick_ratio = 16;
 
+//Keep track of countdowns
+var intervalID;
+var intervalHTML;
+
 // initialize code called once per entity
 GameUpdater.prototype.initialize = function() {
     thisPlayer = this.app.root.findByName('ball');
@@ -1136,10 +1169,94 @@ GameUpdater.prototype.update = function(dt) {
         return;
     }
 
+    // for (let name in this.playerArray) {
+    //     let nameid = getPlayer(name);
+    //     if(GRD.Players[nameid].myReady) {
+    //         this.playerArray[name].collision.enabled = false;
+    //     } else {
+    //         this.playerArray[name].collision.enabled = true;
+    //     }
+    // }
+
     //Update only once every tick_ratio ticks
     tick++;
     if(tick <= tick_ratio) return;
     tick = 0;
+
+    //Check Ready Up
+    if(GRD.holeNumber == 0) {
+
+        //If Host
+        if(sockets.id == GRD.hostSocketId) {
+            if(checkReadyUp() == true) {
+                if(GRD.timeLeft == 'NULL') {
+                    startCountdown(20);
+                }
+            } else {
+                GRD.timeLeft = 'NULL';
+                stopCoundown();
+            }
+        }
+
+        //If anyone (for graphics)
+        if(GRD.timeLeft != "NULL") {
+            let ready_button = document.getElementById("readyButton");
+            ready_button.innerHTML = "Starting in... " + GRD.timeLeft;
+        } else {
+            let ready_button = document.getElementById("readyButton");
+            if(ready_button.innerHTML != "READY" && ready_button.innerHTML != "NOT READY") {
+                ready_button.innerHTML = current_ready ? "READY" : 'NOT READY';
+            }
+        }
+    } else {
+        //If Host
+        if(sockets.id == GRD.hostSocketId) {
+            if(GRD.timeLeft == 'NULL') {
+                //Ended hole, penalize DNF players
+                for (let i = 0; i < GRD.Players.length; i++) {
+                    if(GRD.Players[i] != "EMPTY") {
+                        if(GRD.Players[i].myReady == false && GRD.holeNumber > 1) {
+                            GRD.Players[i].myScores[GRD.holeNumber - 2] = GRD.maxShots;
+                        } else {
+                            //Person did not even move last round, penalize them.
+                            if(GRD.Players[i].myScores[GRD.holeNumber - 2] == 0) {
+                                GRD.Players[i].myScores[GRD.holeNumber - 2] = GRD.maxShots;
+                            }
+                        }
+                    }
+                }
+
+                //Set everyone to ready to prevent collision
+                for (let i = 0; i < GRD.Players.length; i++) {
+                    if(GRD.Players[i] != "EMPTY") {
+                        if(GRD.Players[i].myScores[GRD.holeNumber - 1] == 0) GRD.Players[i].myReady = true;
+                    }
+                }
+
+                //New hole not set up yet, teleport players and start countdown
+                let start_entity_name = "hole_start_" + GRD.holeNumber;
+                let start_entity = this.app.root.findByName(start_entity_name);
+                if(GRD.origin != start_entity.getPosition()) {
+                    GRD.origin = start_entity.getPosition();
+                    for (let i = 0; i < GRD.Players.length; i++) {
+                        if(GRD.Players[i] != "EMPTY") {
+                            GRD.Players[i].myPosition = GRD.origin;
+                            GRD.Players[i].myLinVelocity = pc.Vec3.ZERO;
+                            GRD.Players[i].myAngVelocity = pc.Vec3.ZERO;
+                            if(this.playerArray[GRD.Players[i].myName].rigidbody) this.playerArray[GRD.Players[i].myName].rigidbody.teleport(GRD.origin.x, GRD.origin.y + 1, GRD.origin.z);
+                        }
+                    }
+                }
+                startCountdown(GRD.timeLimit);
+            } else {
+                //If everyone is ready and everyone someone hit during the round, go to next hole
+                if(checkReadyUp() == true && checkNoHits() == false) {
+                    stopCoundown();
+                    if(GRD.holeNumber < GRD.holeLimit) GRD.holeNumber++;
+                }
+            }
+        }
+    }
 
     //Update Cookies
     updateCookies();
@@ -1151,7 +1268,7 @@ GameUpdater.prototype.update = function(dt) {
             let i = getPlayer(name);
             //If player went out of bounds, reset location
             if(this.playerArray[name].getPosition().y < 0) {
-                this.playerArray[name].rigidbody.teleport(GRD.origin.x, GRD.origin.y, GRD.origin.z);
+                this.playerArray[name].rigidbody.teleport(GRD.origin.x, GRD.origin.y + 1, GRD.origin.z);
                 this.playerArray[name].rigidbody.angularVelocity = pc.Vec3.ZERO;
                 this.playerArray[name].rigidbody.linearVelocity = pc.Vec3.ZERO;
             }
@@ -1278,8 +1395,22 @@ GameUpdater.prototype.getPosition = function(name) {
 
 GameUpdater.prototype.applyInput = function(data) {
     if(this.playerArray[data.name].rigidbody) {
+        let playerid = getPlayer(data.name);
+        //First hit of the hole
+        if(GRD.Players[playerid].myReady == true && GRD.Players[playerid].myScores[GRD.holeNumber - 1] == 0) {
+            GRD.Players[playerid].myReady = false;
+        }
         this.playerArray[data.name].rigidbody.applyImpulse(data.force);
-        GRD.Players[getPlayer(data.name)].myScores[GRD.holeNumber - 1]++;
+        GRD.Players[playerid].myScores[GRD.holeNumber - 1]++;
+    }
+};
+
+GameUpdater.prototype.playerInHole = function(entity) {
+    for (let name in this.playerArray) {
+        if (this.playerArray[name].entity == entity || this.playerArray[name] == entity) {
+            GRD.Players[getPlayer(name)].myReady = true;
+            return;
+        }
     }
 };
 
@@ -1305,14 +1436,12 @@ function loadFromCookies() {
         current_sensitivity = parseFloat(cookies.sen);        
         //-----------------------------------------------------------------
         //Network
-        console.log(myName);
         try {
             if(myName == undefined || myName == "anon") {
                 //I currently do not have a name check cookies
                 if(cookies.name) {
                     //If cookie exists, send name to host
                     myName = cookies.name;
-                    console.log(myName);
                     App.Player.sendName();
                 }
             }
@@ -1360,6 +1489,44 @@ function updateCookies() {
         //console.log(error);
     }
     //-----------------------------------------------------------------
+}
+
+function checkReadyUp() {
+    for (let i = 0; i < GRD.Players.length; i++) {
+        if(GRD.Players[i] != "EMPTY") {
+            if(GRD.Players[i].myReady == false) return false;
+        }
+    }
+    return true;
+}
+
+function checkNoHits() {
+    for (let i = 0; i < GRD.Players.length; i++) {
+        if(GRD.Players[i] != "EMPTY") {
+            if(GRD.Players[i].myScores[GRD.holeNumber - 1] > 0) return false;
+        }
+    }
+    return true;
+}
+
+function startCountdown(time) {
+    GRD.timeLeft = time;
+    intervalID = setInterval(() => {
+        if(GRD.timeLeft > 0) {
+            GRD.timeLeft--;
+        } else {
+            stopCoundown();
+            if(GRD.holeNumber < GRD.holeLimit) GRD.holeNumber++;
+        }
+    }, time * 10);
+}
+
+function stopCoundown() {
+    if(intervalID != undefined) {
+        GRD.timeLeft = 'NULL';
+        clearInterval(intervalID);
+        intervalID = undefined;
+    }
 }
 
 // join-ui.js
@@ -2228,8 +2395,53 @@ GameUi.prototype.update = function() {
             let playerName = document.getElementById('playerName');
             if(playerName.textContent != myName) playerName.textContent = myName;
 
-            //Update Scoreboard
             try {
+                //Update Bottom UI bar
+                let bottom_bar = document.querySelector('.HUDcontainer');
+                if(GRD.holeNumber == 0) {
+                    let ready_button = document.getElementById('readyButtonContainer');
+                    if(!ready_button) {
+                        //Reset inside HUD Container
+                        bottom_bar.innerHTML = '';
+                        //Create Ready button
+                        let new_button = document.createElement('div');
+                        new_button.id = "readyButtonContainer";
+                        new_button.innerHTML = current_ready ? '<div class = "buttonGreen" id = "readyButton">READY</div>' :'<div class = "buttonRed" id = "readyButton">NOT READY</div>';
+                        bottom_bar.appendChild(new_button);
+                    }
+                } else {
+                    let hud = document.getElementById('innerHudContainer');
+                    if(!hud) {
+                        //Reset inside HUD Container
+                        bottom_bar.innerHTML = '';
+                        //Create Ready button
+                        let new_hud = document.createElement('div');
+                        new_hud.classList.add("HUDelements");
+                        new_hud.id = "innerHudContainer";
+                        new_hud.innerHTML = '<div class = "textBigLeftNotReady" id = "currentshots" >SHOT: 0</div><div class = "textBigRight" id = "timeleft" >2:00</div>';
+                        bottom_bar.appendChild(new_hud);
+                    } else {
+                        let shots = document.getElementById('currentshots');
+                        let time = document.getElementById('timeleft');
+                        if(time.innerHTML != GRD.timeLeft) {
+                            time.innerHTML = GRD.timeLeft;
+                        }
+                        if(shots.innerHTML != "SHOTS: " + GRD.Players[getPlayer(myName)].myScores[GRD.holeNumber - 1]) {
+                            shots.innerHTML = "SHOTS: " + GRD.Players[getPlayer(myName)].myScores[GRD.holeNumber - 1];
+                        }
+                        let ready = GRD.Players[getPlayer(myName)].myReady;
+                        if(ready == true) {
+                            if (shots.className != "textBigLeftReady") {
+                                shots.className = "textBigLeftReady";
+                            }
+                        } else {
+                            if (shots.className != "textBigLeftNotReady") {
+                                shots.className = "textBigLeftNotReady";
+                            }
+                        }
+                    }
+                }
+                //Update Scoreboard
                 let scoreboardMenu = document.querySelector('.scoreboardOptions');
                 if(scoreboardMenu) {
                     for (let i = 0; i < GRD.playerLimit; i++) {
@@ -2333,4 +2545,52 @@ function generateQR(url, size) {
 }
 
 
+
+// rayCast.js
+var RayCast = pc.createScript('rayCast');
+var pickedEntity = 0;
+// initialize code called once per entity
+RayCast.prototype.initialize = function() {
+    this.app.mouse.on(pc.EVENT_MOUSEDOWN, this.onSelect, this);
+    if(this.app.touch) this.app.touch.on(pc.EVENT_TOUCHSTART, this.onSelect, this);
+
+    this.on('destroy', function() {
+        this.app.mouse.off(pc.EVENT_MOUSEDOWN, this.onSelect, this);
+    }, this);
+};
+
+// update code called every frame
+RayCast.prototype.onSelect = function (e) {
+    var from = this.entity.camera.screenToWorld(e.x, e.y, this.entity.camera.nearClip);
+    var to = this.entity.camera.screenToWorld(e.x, e.y, this.entity.camera.farClip);
+
+    var result = this.app.systems.rigidbody.raycastFirst(from, to);
+    if (result) {
+        pickedEntity = result.entity;
+    }
+};
+
+
+// hole.js
+var Hole = pc.createScript('hole');
+
+// initialize code called once per entity
+Hole.prototype.initialize = function() {
+    // Subscribe to the triggerenter event of this entity's collision component.
+    // This will be fired when a rigid body enters this collision volume.
+    this.entity.collision.on('triggerenter', this.onTriggerEnter, this);
+};
+
+Hole.prototype.onTriggerEnter = function (otherEntity) {
+    //-----------------------------------------------------------------------------------------------
+    //NETWORK
+    try {
+        //If player is not the host, then do not activate
+        if(sockets.id != GRD.hostSocketId) return;
+        GameUpdater.prototype.playerInHole(otherEntity);
+    } catch (error) {
+        //console.log(error);
+    }
+    //------------------------------------------------------------------------------------------------
+};
 
