@@ -15,11 +15,12 @@ var GRD = {
     playerLimit: 8,
     timeLeft: 'NULL',
     timeLimit: 120,
-    holeNumber: 1,
+    holeNumber: 0,
     holeLimit: 4,
     speed: 25,
     gravity: -9.8,
     friction: 0.9,
+    maxShots: 14,
     Players: [],
     LostPlayers: lostplayers
 }

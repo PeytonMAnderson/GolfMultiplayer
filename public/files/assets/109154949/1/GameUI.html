@@ -1,12 +1,34 @@
+
+<body>
+<script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
+
 <div class = "header">
-    <div class = "button" id = "shareButton">SHARE</div>
-    <div class = "button" id = "scoreboardButton">SB</div>
+    <button class = "button" id = "shareButton">
+        <span class="button__icon">
+			<ion-icon name="share-outline"></ion-icon>
+		</span>
+    </button>
+
+    <button class = "button" id = "scoreboardButton">
+        <span class="button__icon">
+            <ion-icon name="calendar-clear-outline"></ion-icon>
+        </span>
+    </button>
+
     <div class = "gameInfo">
         <div class = "titleText" id = "playercount">1/8</div>
         <div class = "titleText" id = "gameid">GAMEID</div>
         <div class = "titleText" id = "playerName">MYNAME</div>
     </div>
-    <div class = "button" id = "settingsButton">SETTINGS</div>
+
+    <button class = "button" id = "settingsButton">
+        <span class="button__icon">
+            <ion-icon name="settings-outline"></ion-icon>
+		</span>
+    </button>
+
 </div>
+
 <div class = "optionMenu"></div>
 
+</body>
