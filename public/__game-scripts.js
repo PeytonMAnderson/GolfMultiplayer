@@ -1185,7 +1185,6 @@ GameUpdater.prototype.update = function(dt) {
 
     //Check Ready Up
     if(GRD.holeNumber == 0) {
-
         //If Host
         if(sockets.id == GRD.hostSocketId) {
             if(checkReadyUp() == true) {
@@ -1494,7 +1493,9 @@ function updateCookies() {
 function checkReadyUp() {
     for (let i = 0; i < GRD.Players.length; i++) {
         if(GRD.Players[i] != "EMPTY") {
-            if(GRD.Players[i].myReady == false) return false;
+            if(GRD.Players[i].myReady == false) {
+                return false;
+            }
         }
     }
     return true;
