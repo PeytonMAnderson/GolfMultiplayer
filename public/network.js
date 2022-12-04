@@ -45,6 +45,7 @@ var IO = {
         IO.socket.on('playerJoinREQ', App.Host.playerJoinREQ); //Host determines if player can join
         IO.socket.on('playerLeft', App.Host.playerLeft);    //Host removes player from lobby
         IO.socket.on('sendPlayerInputREQ', App.Host.sendPlayerInputREQ); //Process User Request
+        IO.socket.on('sendPlayerReadyREQ', App.Host.sendPlayerReadyREQ); //Process User Request
         //Player Server Listeners
         IO.socket.on('gameUpdateACK', App.Player.gameUpdateACK); //Player recieves Entire lobby data from host
         IO.socket.on('hostLeft', App.Player.hostLeft);  //The host has left the lobby
