@@ -51,6 +51,7 @@ var current_gravity;
 var current_collision;
 var host_recieved = true;
 var ballSelected = false;
+var movement_th = 0.05;
 
 function deg_to_rad(degrees) {
     return degrees * (Math.PI/180);
@@ -132,11 +133,23 @@ Movement.prototype.update = function(dt) {
 
     let pickedBall = pickedEntity == this.entity;
 
-    
-    if (inputPressed && pickedBall && vel_mag < 0.02) {ballSelected = true;} else {ballSelected = false;}
+    let hold_for_network = true;
 
-    if(vel_mag > 0.05 && !host_recieved) host_recieved = true;
-    if(vel_mag < 0.05 && host_recieved) {
+    //-------------------------------------------------------------------------------------------------
+    //NETWORKING
+    try {
+        if (GRD.Players[getPlayer(myName)].myScores[GRD.holeNumber - 1] >= GRD.maxShots) {
+            hold_for_network = false;
+        }
+    } catch (error) {
+        console.log(error);
+    }
+    //-------------------------------------------------------------------------------------------------
+
+    if (inputPressed && pickedBall && vel_mag < movement_th && hold_for_network) {ballSelected = true;} else {ballSelected = false;}
+
+    if(vel_mag > movement_th && !host_recieved) host_recieved = true;
+    if(vel_mag < movement_th && host_recieved) {
         this.wait_counter++;
         if(this.wait_counter > 16) {
             //Add force if ball is was selected and released
@@ -184,17 +197,23 @@ Movement.prototype.update = function(dt) {
     //NETWORKING
     if(!this.force.length()) return;
     try {
-        if(GRD.hostSocketId != sockets.id)  {
-            host_recieved = false;
-            sendPlayerInput(this.force);
-        } else {
-            let playerid = getPlayer(myName);
-            //First hit of the hole
-            if(GRD.Players[playerid].myReady == true && GRD.Players[playerid].myScores[GRD.holeNumber - 1] == 0) {
-                GRD.Players[playerid].myReady = false;
+        let playerid = getPlayer(myName);
+        //Prevent players from hitting if they have gone over the max shot count
+        if(GRD.Players[playerid].myScores[GRD.holeNumber - 1] < GRD.maxShots) {
+            if(GRD.hostSocketId != sockets.id)  {
+                host_recieved = false;
+                sendPlayerInput(this.force);
+            } else {
+                //First hit of the hole
+                if(GRD.Players[playerid].myReady == true && GRD.Players[playerid].myScores[GRD.holeNumber - 1] == 0) {
+                    GRD.Players[playerid].myReady = false;
+                }
+                this.entity.rigidbody.applyImpulse(this.force);
+                GRD.Players[playerid].myScores[GRD.holeNumber - 1]++;
+                if(GRD.Players[playerid].myScores[GRD.holeNumber - 1] >= GRD.maxShots) {
+                    GRD.Players[playerid].myReady = true;
+                }
             }
-            this.entity.rigidbody.applyImpulse(this.force);
-            GRD.Players[playerid].myScores[GRD.holeNumber - 1]++;
         }
     } catch (error) {
         //console.log(error);
@@ -1249,7 +1268,7 @@ GameUpdater.prototype.update = function(dt) {
                 startCountdown(GRD.timeLimit);
             } else {
                 //If everyone is ready and everyone someone hit during the round, go to next hole
-                if(checkReadyUp() == true && checkNoHits() == false) {
+                if(checkReadyUp() == true && checkNoHits() == false && checkHasVelocity(this.playerArray) == false) {
                     stopCoundown();
                     if(GRD.holeNumber < GRD.holeLimit) GRD.holeNumber++;
                 }
@@ -1340,6 +1359,9 @@ GameUpdater.prototype.createPlayerEnitity = function(pos, lin_vel, ang_vel, name
     var newText = thisText.clone();
     newText.focusEntity = newPlayer;
     newText.focusName = name;
+    if (name == GRD.hostName) {
+        newText.element.color = new pc.Color(1, 0.75, 0, 1);
+    }
     thisOther.getParent().addChild(newText);  //Add Copy to the scene structure
 
     newPlayer.namePlate = newText;
@@ -1401,6 +1423,9 @@ GameUpdater.prototype.applyInput = function(data) {
         }
         this.playerArray[data.name].rigidbody.applyImpulse(data.force);
         GRD.Players[playerid].myScores[GRD.holeNumber - 1]++;
+        if(GRD.Players[playerid].myScores[GRD.holeNumber - 1] >= GRD.maxShots) {
+            GRD.Players[playerid].myReady = true;
+        }
     }
 };
 
@@ -1508,6 +1533,15 @@ function checkNoHits() {
         }
     }
     return true;
+}
+
+function checkHasVelocity(playerArray) {
+    for (let name in playerArray) {
+        let vel_vec = playerArray[name].rigidbody.angularVelocity;
+        let vel_mag = Math.abs(vel_vec.x) + Math.abs(vel_vec.y) + Math.abs(vel_vec.z);
+        if(vel_mag > movement_th) return true;
+    }
+    return false;
 }
 
 function startCountdown(time) {
@@ -1689,6 +1723,7 @@ var GameUi = pc.createScript('gameUi');
 
 //Game Settings
 var current_collision = true;
+var current_maxshots = 14;
 
 //Temporary hold for network.js variables
 var MAX_HOLES = 4;
@@ -2135,6 +2170,43 @@ GameUi.prototype.bindEventGameSettings = function (ref) {
         ct.textContent = current_collision ? "Yes" : "No";
     }, false);
 
+    //Max Shots
+    let mm = document.getElementById('maxshotsMinus');
+    let mt = document.getElementById('currentMaxShots');
+    let mp = document.getElementById('maxshotsPlus');
+    //-------------------------------------------------------------------------
+    //NETWORK
+    try {mt.textContent = GRD.maxShots;} catch (error) {mt.textContent = current_maxshots;}
+    //-------------------------------------------------------------------------
+    mm.addEventListener('click', function() {
+        //-------------------------------------------------------------------------
+        //NETWORK
+        try {
+            if(GRD.maxShots > 1) {
+                GRD.maxShots = GRD.maxShots - 1;
+                mt.textContent = GRD.maxShots;
+            }
+        } catch (error) {
+            if(current_maxshots > 1) {
+                current_maxshots = current_maxshots - 1;
+                mt.textContent = current_maxshots;
+            }
+        }
+        //-------------------------------------------------------------------------
+    }, false);
+    mp.addEventListener('click', function() {
+        //-------------------------------------------------------------------------
+        //NETWORK
+        try {
+            GRD.maxShots = GRD.maxShots + 1;
+            mt.textContent = GRD.maxShots;
+        } catch (error) {
+            current_maxshots = current_maxshots + 1;
+            mt.textContent = current_maxshots;
+        }
+        //-------------------------------------------------------------------------
+    }, false);
+
     //Get HTML Elements
     this.back = document.getElementById('backButton');
     this.advanced = document.getElementById('advancedButton');
@@ -2427,8 +2499,8 @@ GameUi.prototype.update = function() {
                         if(time.innerHTML != GRD.timeLeft) {
                             time.innerHTML = GRD.timeLeft;
                         }
-                        if(shots.innerHTML != "SHOTS: " + GRD.Players[getPlayer(myName)].myScores[GRD.holeNumber - 1]) {
-                            shots.innerHTML = "SHOTS: " + GRD.Players[getPlayer(myName)].myScores[GRD.holeNumber - 1];
+                        if(shots.innerHTML != "SHOTS: " + GRD.Players[getPlayer(myName)].myScores[GRD.holeNumber - 1] + "/" + GRD.maxShots) {
+                            shots.innerHTML = "SHOTS: " + GRD.Players[getPlayer(myName)].myScores[GRD.holeNumber - 1] + "/" + GRD.maxShots;
                         }
                         let ready = GRD.Players[getPlayer(myName)].myReady;
                         if(ready == true) {
