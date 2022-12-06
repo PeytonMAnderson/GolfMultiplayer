@@ -88,8 +88,9 @@
 .button {
     margin-left: auto;
     margin-right: auto;
-    width: max-content;
-    display: flex;  
+    width: 80px;
+    height: 80px;
+    display: inline-block;  
     position: relative;
     justify-content: center;  
     align-items: center;  
@@ -97,6 +98,7 @@
     color: #ffffff;
     font-size: 24px;
     background-color: #1a2216cb;
+    background-size: cover;
 }
 
 .backButton {
