@@ -11,6 +11,7 @@ var GRD = {
     gameId: 0,
     origin: undefined,
     hostSocketId: 'NULL',
+    hostName: 'NULL',
     playerCount: 1,
     playerLimit: 8,
     timeLeft: 'NULL',
@@ -108,6 +109,7 @@ var IO = {
             try {
                 IO.socket.emit("joinSocket", GRD.gameId); 
                 myName = data.hostName;
+                GRD.hostName = myName;
             } catch (error) {
                 console.log(error);
             }
@@ -262,6 +264,7 @@ var App = {
             //Wait for Scene to load if it hasn't yet
             function checkLoading() {
                 if(loaded) {
+                    GRD.hostName = data.hostName;
                     if(playerArrayEqual(GRD.Players, data.Players) == false) {
                         //If different ammount of players, reset players
                         console.log("NETWORK: Reseting Player Entities");
@@ -273,6 +276,7 @@ var App = {
                     GRD = {
                         gameId: parseInt(data.gameId),
                         hostSocketId: data.hostSocketId,
+                        hostName: data.hostName,
                         origin: data.origin,
                         playerCount: data.playerCount,
                         playerLimit: data.playerLimit,
@@ -285,6 +289,7 @@ var App = {
                         speed: data.speed,
                         gravity: data.gravity,
                         friction: data.friction,
+                        maxShots: data.maxShots
                     }
                 } else {
                     window.setTimeout(checkLoading, 50);
@@ -313,6 +318,7 @@ function sendGameUpdate() {
     let data = {
         gameId: GRD.gameId,
         hostSocketId: GRD.hostSocketId,
+        hostName: GRD.hostName,
         origin: GRD.origin,
         playerCount: GRD.playerCount,
         playerLimit: GRD.playerLimit,
@@ -322,6 +328,7 @@ function sendGameUpdate() {
         LostPlayers: GRD.LostPlayers,
         speed: GRD.speed,
         friction: GRD.friction,
+        maxShots: GRD.maxShots,
         gravity: GRD.gravity,
         holeNumber: GRD.holeNumber,
         holeLimit: GRD.holeLimit

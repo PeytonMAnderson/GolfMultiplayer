@@ -22,42 +22,42 @@
     margin-bottom: auto;
     text-align: center;
     padding: 1%;
-    color: #251f23;
-    font-size: 24px;
+    color: #f7ff64;
+    font-size: 28px;
 }
 
 .text {
     text-align: center;
     padding: 0.5%;
-    color: #251f23;
-    font-size: 18px;
+    color: #ffffff;
+    font-size: 22px;
 }
 
 .textLeft {
     text-align: left;
     padding: 0.5%;
-    color: #251f23;
-    font-size: 18px;
+    color: #ffffff;
+    font-size: 22px;
 }
 
 .textBigLeftReady {
     text-align: left;
     padding: 0.5%;
-    color: #155412;
+    color: #7bff74;
     font-size: -webkit-xxx-large;
 }
 
 .textBigLeftNotReady {
     text-align: left;
     padding: 0.5%;
-    color: #611a1a;
+    color: #ff5e5e;
     font-size: -webkit-xxx-large;
 }
 
 .textBigRight {
     text-align: right;
     padding: 0.5%;
-    color: #251f23;
+    color: #ffffff;
     font-size: -webkit-xxx-large;
 }
 
@@ -68,7 +68,7 @@
     flex: 0 1 auto;
     display: grid;
     grid-template-columns: min-content min-content 1fr min-content;
-    background-color: #69a14d93;
+    background-color: #11220a93;
     font-weight: 100;
 }
 
@@ -86,21 +86,40 @@
 
 
 .button {
+    margin-left: auto;
+    margin-right: auto;
+    width: max-content;
     display: flex;  
     position: relative;
     justify-content: center;  
     align-items: center;  
     cursor: pointer;
-    
+    color: #ffffff;
+    font-size: 24px;
+    background-color: #1a2216cb;
+}
+
+.backButton {
+    font-size: 28px;
+    margin-left: auto;
+    margin-right: auto;
+    width: max-content;
+    display: flex;  
+    position: relative;
+    justify-content: center;  
+    align-items: center;  
+    cursor: pointer;
+    color: #ffffff;
+    background-color: #1a2216cb;
 }
 
 
 .button:hover {
-	background: #69a14d;;
+	background: #000000;
 }
 
 .button:active {
-	background: #69a14d;;
+	background: #000000;
 }
 
 .button__icon {
@@ -109,7 +128,7 @@
 	padding: 0 24px;
 	color: black;
 	height: 100%;
-    background-color: transparent;
+    background-color: #7bff74;
 
 }
 
@@ -124,7 +143,7 @@
     margin-right: 20px;
   
 
-    background-color: #b20000;
+    background-color: #ff5e5e;
     font-size: 18px;
     line-height: 24px;
     border-radius: 4px;
@@ -148,7 +167,7 @@
     margin-right: 20px;
   
 
-    background-color: #68e63a;
+    background-color: #7bff74;
     font-size: 18px;
     line-height: 24px;
     border-radius: 4px;
@@ -169,7 +188,7 @@
     margin-left: auto;
     margin-right: auto;
 
-    font-size: 18px;
+    font-size: 28px;
     line-height: 24px;
     border-radius: 4px;
     padding: 0 16px;
@@ -181,6 +200,7 @@
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
+    color: #f7ff64;
 }
 
 
@@ -192,12 +212,9 @@
     width: 100%;
     height: 100%;
     text-align: center;
-    background-color: #69a14dcb;
+    background-color: #0c1607cb;
     font-weight: 100;
 }
-
-
-
 
 
 .shareOptions {
@@ -221,7 +238,7 @@
     margin-left: auto;
 }
 
-.backButton {
+.backButton2 {
     text-align: center;
     flex: 0 1 auto;
     position: relative;
@@ -230,8 +247,10 @@
 }
 
 .setting {
-    padding: 2%;
+    padding-top: 1%;
+    padding-bottom: 1%;
     width: 50%;
+    height: 100%;
     margin-left: auto;
     margin-right: auto;
     display: grid;
@@ -251,5 +270,4 @@
     display: grid;
     grid-template-columns: auto auto auto auto;
 }
-
 
