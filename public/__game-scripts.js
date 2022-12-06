@@ -1649,7 +1649,7 @@ JoinUi.prototype.initialize = function() {
 JoinUi.prototype.bindEvents = function() {
 
     let join_input = this.div.querySelector('.createPlayerName');
-    let join_button = this.div.querySelector('.button');
+    let join_button = this.div.querySelector('.joinButton');
 
     if(join_button) {
         join_button.addEventListener('click', function() {
