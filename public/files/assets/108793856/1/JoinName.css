@@ -19,7 +19,7 @@ Dark Purple : #A22FB0
     font-weight: 100;
 }
 
-.joinContainer > .button {
+.joinContainer > .joinButton {
     display: block;
     width: 50%;
     margin-bottom: 0;
@@ -44,7 +44,7 @@ Dark Purple : #A22FB0
     float: right;
 }
 
-.joinContainer .textField .createPlayerName {
+.joinContainer .joinTextField .createPlayerName {
     display: block;
     text-align: center;
     width: 50%;
@@ -67,7 +67,7 @@ img {
     display: block;
 }
 
-.joinContainer > .titleText {
+.joinContainer > .joinTitleText {
     margin: 0px auto;
     text-align: center;
     width: 100%;
@@ -77,7 +77,7 @@ img {
     font-weight: 300;
 }
 
-.subTitleText {
+.joinSubTitleText {
     display: block;
     width: 100%;
     margin-left: auto;
