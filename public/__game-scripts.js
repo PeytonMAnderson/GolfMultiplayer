@@ -1209,21 +1209,29 @@ GameUpdater.prototype.update = function(dt) {
             if(checkReadyUp() == true) {
                 if(GRD.timeLeft == 'NULL') {
                     startCountdown(20);
+                    //Set every score to 0
+                    for (let i = 0; i < GRD.Players.length; i++ ) {
+                        if(GRD.Players[i] != "EMPTY") {
+                            for (let k = 0; k < GRD.Players[i].myScores.length; k++) {
+                                if(GRD.Players[i].myScores[k] != 0) GRD.Players[i].myScores[k] = 0;
+                            }
+                        }
+                    }
                 }
             } else {
-                GRD.timeLeft = 'NULL';
                 stopCoundown();
             }
         }
 
         //If anyone (for graphics)
+        let myid = getPlayer(myName);
         if(GRD.timeLeft != "NULL") {
             let ready_button = document.getElementById("readyButton");
             ready_button.innerHTML = "Starting in... " + GRD.timeLeft;
         } else {
             let ready_button = document.getElementById("readyButton");
             if(ready_button.innerHTML != "READY" && ready_button.innerHTML != "NOT READY") {
-                ready_button.innerHTML = current_ready ? "READY" : 'NOT READY';
+                ready_button.innerHTML = GRD.Players[myid].myReady ? "READY" : 'NOT READY';
             }
         }
     } else {
@@ -1270,7 +1278,28 @@ GameUpdater.prototype.update = function(dt) {
                 //If everyone is ready and everyone someone hit during the round, go to next hole
                 if(checkReadyUp() == true && checkNoHits() == false && checkHasVelocity(this.playerArray) == false) {
                     stopCoundown();
-                    if(GRD.holeNumber < GRD.holeLimit) GRD.holeNumber++;
+                    if(GRD.holeNumber < GRD.holeLimit) {
+                        GRD.holeNumber++;
+                    } else {
+                        //End end game
+                        //Set everyone to unready   
+                        for (let i = 0; i < GRD.Players.length; i++) if(GRD.Players[i] != "EMPTY") GRD.Players[i].myReady = false;
+                        //Teleport everyone back to the waiting room
+                        GRD.holeNumber = 0;
+                        let start_entity_name = "waiting_room_start";
+                        let start_entity = this.app.root.findByName(start_entity_name);
+                        if(GRD.origin != start_entity.getPosition()) {
+                            GRD.origin = start_entity.getPosition();
+                            for (let i = 0; i < GRD.Players.length; i++) {
+                                if(GRD.Players[i] != "EMPTY") {
+                                    GRD.Players[i].myPosition = GRD.origin;
+                                    GRD.Players[i].myLinVelocity = pc.Vec3.ZERO;
+                                    GRD.Players[i].myAngVelocity = pc.Vec3.ZERO;
+                                    if(this.playerArray[GRD.Players[i].myName].rigidbody) this.playerArray[GRD.Players[i].myName].rigidbody.teleport(GRD.origin.x, GRD.origin.y + 1, GRD.origin.z);
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1837,7 +1866,6 @@ GameUi.prototype.bindEvents = function(ref) {
     //Ready Button
     if(this.readyButton) {
         this.readyButton.addEventListener('click', function() {
-
             current_ready = current_ready ? false : true;
             if(current_ready) {
                 this.className = "buttonGreen";
@@ -1858,7 +1886,7 @@ GameUi.prototype.bindEvents = function(ref) {
                 //console.log(error);
             }
             //-------------------------------------------------------------------
-        });
+        }, false);
     }
 
     //Share Button
@@ -2474,6 +2502,16 @@ GameUi.prototype.update = function() {
                 if(GRD.holeNumber == 0) {
                     let ready_button = document.getElementById('readyButtonContainer');
                     if(!ready_button) {
+                        //-------------------------------------------------------------------
+                        //NETWORK
+                        try {
+                            let myid = getPlayer(myName);
+                            current_ready = GRD.Players[myid].myReady;
+                        } catch (error) {
+                            current_ready = current_ready ? false : true;
+                        }
+                        //-------------------------------------------------------------------
+
                         //Reset inside HUD Container
                         bottom_bar.innerHTML = '';
                         //Create Ready button
@@ -2481,6 +2519,30 @@ GameUi.prototype.update = function() {
                         new_button.id = "readyButtonContainer";
                         new_button.innerHTML = current_ready ? '<div class = "buttonGreen" id = "readyButton">READY</div>' :'<div class = "buttonRed" id = "readyButton">NOT READY</div>';
                         bottom_bar.appendChild(new_button);
+                        let ready_button = document.getElementById('readyButton');
+                        ready_button.addEventListener('click', function() {
+                            current_ready = current_ready ? false : true;
+                            console.log('Click!');
+                            if(current_ready) {
+                                this.className = "buttonGreen";
+                                this.textContent = "READY";
+                            } else {
+                                this.className = "buttonRed";
+                                this.textContent = "NOT READY";
+                            }
+                            //-------------------------------------------------------------------
+                            //NETWORK
+                            try {
+                                if(GRD.hostSocketId == sockets.id) {
+                                    GRD.Players[getPlayer(myName)].myReady = current_ready;
+                                } else {
+                                    sendPlayerReady(current_ready);
+                                }
+                            } catch (error) {
+                                //console.log(error);
+                            }
+                            //-------------------------------------------------------------------
+                        }, false);
                     }
                 } else {
                     let hud = document.getElementById('innerHudContainer');
@@ -2496,8 +2558,8 @@ GameUi.prototype.update = function() {
                     } else {
                         let shots = document.getElementById('currentshots');
                         let time = document.getElementById('timeleft');
-                        if(time.innerHTML != GRD.timeLeft) {
-                            time.innerHTML = GRD.timeLeft;
+                        if(time.innerHTML != "TIME: " + GRD.timeLeft) {
+                            time.innerHTML = "TIME: " + GRD.timeLeft;
                         }
                         if(shots.innerHTML != "SHOTS: " + GRD.Players[getPlayer(myName)].myScores[GRD.holeNumber - 1] + "/" + GRD.maxShots) {
                             shots.innerHTML = "SHOTS: " + GRD.Players[getPlayer(myName)].myScores[GRD.holeNumber - 1] + "/" + GRD.maxShots;
