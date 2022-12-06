@@ -1,26 +1,27 @@
 <!DOCTYPE html>
 <html>
   <head>
-      <title>Golf Multiplayer</title>
+      <title>Putt Putt Web</title>
     <meta charset="utf-8"/>
     <!-- Ensure that everything scales appropriately on a mobile device -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <!-- Let's borrow a cool looking Font from Google -->
     <link href='https://fonts.googleapis.com/css?family=Quicksand:300,400,700' rel='stylesheet' type='text/css'>
     <link href="style.css" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Audiowide' rel='stylesheet'>
   </head>
   <body>
     <div id="gameArea"></div>
         <div class="titleWrapper">
             <div class="title">
-                Golf Multiplayer
+                <img src="putt putt logo.png" alt="Logo">
             </div>
             <div class = "subtitle">
-                JOIN GAME
+                ENTER THE ROOM CODE AND JOIN THE FUN!
             </div>
             <form id="joinGame" action="./lobby" method="POST">
                 <div class="info">
-                    <label for="joinGame">GAME ID</label>
+                    <label for="joinGame">ROOM CODE</label>
                     <input name="joinGame" type="text"/>
                 </div>
                 <div class="buttons">

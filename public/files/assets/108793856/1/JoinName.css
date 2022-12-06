@@ -1,32 +1,42 @@
+
+
+/*
+ Dark Green : #78BD4C
+  Mid Green : #A8FF56
+       Lite : #ECFFE0
+Dark Purple : #A22FB0
+*/
+
+
 .joinContainer {
     position: absolute;
-    top: 60%;
-    left: 50%;
-    margin-right: -50%;
-    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    margin-left: auto;
+    margin-right: auto;
     border-radius: 25px;
-    background: #BB6B00;
-    padding: 20px;
-    width: 600px;
-    height: 200px;
-    
+    background-color: #8AD453;
     font-weight: 100;
-    padding: 60px;
 }
 
 .joinContainer > .button {
+    display: block;
+    width: 50%;
+    margin-bottom: 0;
+    color: #ECFFE0;
+    font-family: 'Audiowide';font-size: 38px;
+    line-height: 1.2;
     text-align: center;
-    font-size: 30px;
-    line-height: 40px;
-    border-radius: 4px;
+    background-color: #fe9255;
+    white-space: nowrap;
     cursor: pointer;
-    background-color: #69a14d;
-    
-    -webkit-touch-callout: none;
+    border: 1px solid transparent;
+    padding: 35px 35px;
+    margin: 60px auto;
     -webkit-user-select: none;
-    -khtml-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
+    -o-user-select: none;
     user-select: none;
 }
 
@@ -34,16 +44,47 @@
     float: right;
 }
 
-.joinContainer .textField {
-    color: #251f23;
-    margin:0 auto;
-    width:185px;
+.joinContainer .textField .createPlayerName {
+    display: block;
+    text-align: center;
+    width: 50%;
+    font-family: 'Audiowide';
+    color: #A22FB0;
+    font-weight: 300;
+    font-size: 54px;
+    border: 1px dotted white;
+    border-radius: 10px;
+    background: transparent;
+    padding: 0;
+    margin: 50px auto;
 }
 
-.joinContainer > .text {
-    margin-top: 30px;
-    color: #69a14d;
-    font-size: xx-large;
-    text-align: center;
+img {
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+}
 
+.joinContainer > .titleText {
+    margin: 0px auto;
+    text-align: center;
+    width: 100%;
+    height: auto;
+    font-family: 'Audiowide';font-size: 38px;
+    color: #ECFFE0;
+    font-weight: 300;
+}
+
+.subTitleText {
+    display: block;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+    height: auto;
+    font-family: 'Audiowide';font-size: 22px;
+    color: #ECFFE0;
+    font-weight: 300;
 }

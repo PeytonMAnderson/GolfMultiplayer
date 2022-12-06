@@ -83,13 +83,13 @@ Movement.prototype.initialize = function() {
         GameUi.updateNetwork(this, "FRICTION");
         GameUi.updateNetwork(this, "SPEED");
     } catch (error) {
-        console.log(error);
+        //console.log(error);
     }
 };
 
 // update code called every frame
 Movement.prototype.update = function(dt) {
-
+    //console.log(mouseDistance);
     //--------------------------------------------------------------------
     //NETWORK
     try {
@@ -142,27 +142,27 @@ Movement.prototype.update = function(dt) {
             hold_for_network = false;
         }
     } catch (error) {
-        console.log(error);
+        //console.log(error);
     }
     //-------------------------------------------------------------------------------------------------
 
     if (inputPressed && pickedBall && vel_mag < movement_th && hold_for_network) {ballSelected = true;} else {ballSelected = false;}
-
     if(vel_mag > movement_th && !host_recieved) host_recieved = true;
     if(vel_mag < movement_th && host_recieved) {
         this.wait_counter++;
         if(this.wait_counter > 16) {
             //Add force if ball is was selected and released
             if(pickedBall && inputPressed == false) {
-                forceZ = -this.speed;
+                let max_speed = -this.speed;
+                let max_power = window.screen.width > window.screen.height ? window.screen.height/2 : window.screen.width/2;
+                let current_power = (2 * mouseDistance) / max_power;
+                forceZ = max_speed * current_power;
                 pickedEntity = undefined;
             }
         }
     } else {
         this.wait_counter = 0;
-        if(!host_recieved) host_recieved = true;
     }
-
 
     //Calcuate Foward and Backward tranformed to global space
     this.force.x = this.force.x + forceZ * Math.sin(theta_0);
@@ -774,6 +774,7 @@ OrbitCamera.prototype._calcPitch = function(quat, yaw) {
 var MouseInput = pc.createScript('mouseInput');
 
 var current_sensitivity;
+var mouseDistance;
 var isMousePressed = false;
 
 MouseInput.attributes.add('orbitSensitivity', {
@@ -827,6 +828,7 @@ MouseInput.prototype.initialize = function() {
     this.lookButtonDown = false;
     this.panButtonDown = false;
     this.lastPoint = new pc.Vec2();
+    this.startPoint = new pc.Vec2();
 
 
     if(!current_sensitivity) current_sensitivity = this.orbitSensitivity;
@@ -871,6 +873,7 @@ MouseInput.prototype.onMouseDown = function (event) {
     switch (event.button) {
         case pc.MOUSEBUTTON_LEFT: {
             this.lookButtonDown = true;
+            this.startPoint.set(event.x, event.y);
         } break;
             
         case pc.MOUSEBUTTON_MIDDLE: 
@@ -911,6 +914,7 @@ MouseInput.prototype.onMouseMove = function (event) {
         }
         this.lastPoint.set(event.x, event.y);
     }
+    mouseDistance = Math.sqrt(Math.pow(event.x - this.startPoint.x,2) + Math.pow(event.y - this.startPoint.y,2));
 };
 
 
@@ -927,7 +931,6 @@ MouseInput.prototype.onMouseOut = function (event) {
 
 // touchInput.js
 var TouchInput = pc.createScript('touchInput');
-
 var isTouchPressed = false;
 
 TouchInput.attributes.add('orbitSensitivity', {
@@ -961,7 +964,10 @@ TouchInput.prototype.initialize = function() {
         this.app.touch.on(pc.EVENT_TOUCHCANCEL, this.onTouchStartEndCancel, this);
 
         //Edit isTouchPressed
-        this.app.touch.on(pc.EVENT_TOUCHSTART, () => {isTouchPressed = true;}, this);
+        this.app.touch.on(pc.EVENT_TOUCHSTART, (e) => {
+            isTouchPressed = true;
+            this.startPoint = {x: e.touches[0].x, y: e.touches[0].y};
+        }, this);
         this.app.touch.on(pc.EVENT_TOUCHMOVE, () => {isTouchPressed = true;}, this);
         this.app.touch.on(pc.EVENT_TOUCHEND, () => {isTouchPressed = false;}, this);
         
@@ -1023,6 +1029,10 @@ TouchInput.fromWorldPoint = new pc.Vec3();
 TouchInput.toWorldPoint = new pc.Vec3();
 TouchInput.worldDiff = new pc.Vec3();
 
+this.lastPoint = new pc.Vec2();
+this.startPoint = new pc.Vec2();
+
+
 
 TouchInput.prototype.pan = function(midPoint) {
     var fromWorldPoint = TouchInput.fromWorldPoint;
@@ -1045,16 +1055,16 @@ TouchInput.prototype.pan = function(midPoint) {
 
 TouchInput.pinchMidPoint = new pc.Vec2();
 
+
 TouchInput.prototype.onTouchMove = function(event) {
     var pinchMidPoint = TouchInput.pinchMidPoint;
     
     // We only care about the first touch for camera rotation. Work out the difference moved since the last event
     // and use that to update the camera target position 
-    var touches = event.touches;
+    let touches = event.touches;
+    let touch = touches[0];
     if (ballSelected == false) {
         if (touches.length == 1) {
-            var touch = touches[0];
-            
             this.orbitCamera.pitch -= (touch.y - this.lastTouchPoint.y) * this.orbitSensitivity;
             this.orbitCamera.yaw -= (touch.x - this.lastTouchPoint.x) * this.orbitSensitivity;
             
@@ -1074,6 +1084,7 @@ TouchInput.prototype.onTouchMove = function(event) {
             this.lastPinchMidPoint.copy(pinchMidPoint);
         }
     }
+    mouseDistance = Math.sqrt(Math.pow(touch.x - this.startPoint.x,2) + Math.pow(touch.y - this.startPoint.y,2));
 };
 
 
@@ -1547,9 +1558,7 @@ function updateCookies() {
 function checkReadyUp() {
     for (let i = 0; i < GRD.Players.length; i++) {
         if(GRD.Players[i] != "EMPTY") {
-            if(GRD.Players[i].myReady == false) {
-                return false;
-            }
+            if(GRD.Players[i].myReady == false) return false;
         }
     }
     return true;
@@ -1592,6 +1601,7 @@ function stopCoundown() {
         intervalID = undefined;
     }
 }
+
 
 // join-ui.js
 // join-ui.js
@@ -1866,6 +1876,7 @@ GameUi.prototype.bindEvents = function(ref) {
     //Ready Button
     if(this.readyButton) {
         this.readyButton.addEventListener('click', function() {
+
             current_ready = current_ready ? false : true;
             if(current_ready) {
                 this.className = "buttonGreen";
@@ -2684,10 +2695,17 @@ function generateQR(url, size) {
 // rayCast.js
 var RayCast = pc.createScript('rayCast');
 var pickedEntity = 0;
+
 // initialize code called once per entity
 RayCast.prototype.initialize = function() {
-    this.app.mouse.on(pc.EVENT_MOUSEDOWN, this.onSelect, this);
-    if(this.app.touch) this.app.touch.on(pc.EVENT_TOUCHSTART, this.onSelect, this);
+    this.start = undefined;
+    this.end = undefined;
+    this.startedLine = false;
+
+    if(!this.app.touch) this.app.mouse.on(pc.EVENT_MOUSEDOWN, this.onSelectMouse, this);
+    if(!this.app.touch) this.app.mouse.on(pc.EVENT_MOUSEMOVE, this.updateMouse, this);
+    if(this.app.touch) this.app.touch.on(pc.EVENT_TOUCHSTART, this.onSelectTouch, this);
+    if(this.app.touch) this.app.touch.on(pc.EVENT_TOUCHMOVE, this.updateTouch, this);
 
     this.on('destroy', function() {
         this.app.mouse.off(pc.EVENT_MOUSEDOWN, this.onSelect, this);
@@ -2695,17 +2713,53 @@ RayCast.prototype.initialize = function() {
 };
 
 // update code called every frame
-RayCast.prototype.onSelect = function (e) {
-    var from = this.entity.camera.screenToWorld(e.x, e.y, this.entity.camera.nearClip);
-    var to = this.entity.camera.screenToWorld(e.x, e.y, this.entity.camera.farClip);
-
-    var result = this.app.systems.rigidbody.raycastFirst(from, to);
+RayCast.prototype.onSelectMouse = function (e) {
+    this.startedLine = false;
+    let from = this.entity.camera.screenToWorld(e.x, e.y, this.entity.camera.nearClip);
+    let to = this.entity.camera.screenToWorld(e.x, e.y, this.entity.camera.farClip);
+    let result = this.app.systems.rigidbody.raycastFirst(from, to);
     if (result) {
         pickedEntity = result.entity;
     }
 };
 
+RayCast.prototype.onSelectTouch = function (e) {
+    this.startedLine = false;
+    let from = this.entity.camera.screenToWorld(e.touches[0].x, e.touches[0].y, this.entity.camera.nearClip);
+    let to = this.entity.camera.screenToWorld(e.touches[0].x, e.touches[0].y, this.entity.camera.farClip);
+    let result = this.app.systems.rigidbody.raycastFirst(from, to);
+    if (result) {
+        pickedEntity = result.entity;
+    }
+};
 
+RayCast.prototype.updateMouse = function (e) {
+    if(pickedEntity && ballSelected) {
+        this.start = this.entity.camera.screenToWorld(e.x, e.y, this.entity.camera.nearClip);
+        this.end = pickedEntity.getPosition();
+        this.startedLine = true;
+    }
+};
+
+RayCast.prototype.updateTouch = function (e) {
+    if(pickedEntity && ballSelected) {
+        this.start = this.entity.camera.screenToWorld(e.touches[0].x, e.touches[0].y, this.entity.camera.nearClip);
+        this.end = pickedEntity.getPosition();
+        this.startedLine = true;
+    }
+};
+
+RayCast.prototype.update = function() {
+    if(pickedEntity && ballSelected && this.start && this.end && this.startedLine) {
+        let r = mouseDistance/1000;
+        let g = 1 - mouseDistance/1000;
+        let color = new pc.Color(r, g, 0);
+        this.app.drawLine(this.start, this.end, color, true);
+    }
+};
+
+
+// hole.js
 // hole.js
 var Hole = pc.createScript('hole');
 
