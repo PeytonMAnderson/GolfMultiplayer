@@ -2754,7 +2754,20 @@ RayCast.prototype.update = function() {
         let r = mouseDistance/1000;
         let g = 1 - mouseDistance/1000;
         let color = new pc.Color(r, g, 0);
+        let startplusplus = new pc.Vec3(this.start.x + 0.0001, this.start.y + 0.0001, this.start.z);
+        let startminusminus = new pc.Vec3(this.start.x - 0.0001, this.start.y - 0.0001, this.start.z);
+        let startplusminus = new pc.Vec3(this.start.x + 0.0001, this.start.y - 0.0001, this.start.z);
+        let startminusplus = new pc.Vec3(this.start.x - 0.0001, this.start.y + 0.0001, this.start.z);
+        let endplusplus = new pc.Vec3(this.end.x + 0.001, this.end.y + 0.001, this.end.z);
+        let endminusminus = new pc.Vec3(this.end.x - 0.001, this.end.y - 0.001, this.end.z);
+        let endplusminus = new pc.Vec3(this.end.x + 0.001, this.end.y - 0.001, this.end.z);
+        let endminusplus = new pc.Vec3(this.end.x - 0.001, this.end.y + 0.001, this.end.z);
+        // let startminus = pc.Vec3(this.start.x, this.start.y - 1, this.start.z);
         this.app.drawLine(this.start, this.end, color, true);
+        this.app.drawLine(startplusplus, endplusplus, color, true);
+        this.app.drawLine(startminusminus, endminusminus, color, true);
+        this.app.drawLine(startplusminus, endplusminus, color, true);
+        this.app.drawLine(startminusplus, endminusplus, color, true);
     }
 };
 
